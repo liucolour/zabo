@@ -50,7 +50,7 @@
                             </includeConfigurationDirectoryInClasspath>
                             <programs>
                                 <program>
-                                    <mainClass>nutanix.alert.Main</mainClass>
+                                    <mainClass>com.zabo.Main</mainClass>
                                     <id>${project.artifactId}</id>
                                     <platforms>
                                         <platform>windows</platform>

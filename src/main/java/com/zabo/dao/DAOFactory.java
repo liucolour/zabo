@@ -10,11 +10,9 @@ public abstract class DAOFactory {
         ElasticSearch
     }
 
-    public abstract CarDAO getCarDAO();
     public abstract JobDAO getJobDAO();
-    public abstract RentalDAO getRentalDAO();
-    public abstract TradeDAO getTradeDAO();
 
+    public abstract DAO getDAO(Class clazz);
 
     public static DAOFactory getDAOFactorybyConfig() {
         String configDBType = Utils.getProperty("database.default");

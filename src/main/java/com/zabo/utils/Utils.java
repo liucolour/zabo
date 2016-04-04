@@ -16,7 +16,7 @@ public class Utils {
         try {
             String filename = "config.properties";
             input = Utils.class.getClassLoader().getResourceAsStream(filename);
-            if(input==null){
+            if(input == null){
                 System.out.println("Sorry, unable to find " + filename);
                 return null;
             }
@@ -31,26 +31,23 @@ public class Utils {
         }
     }
 
-    public static long generateRandom(int length) {
+    public static Integer getPropertyInt(String key) {
+        String val = getProperty(key);
+        try {
+            return  Integer.parseInt(val);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid key for integer");
+            return null;
+        }
+    }
+
+    public static String generateRandom(int length) {
         Random random = new Random();
         char[] digits = new char[length];
         digits[0] = (char) (random.nextInt(9) + '1');
         for (int i = 1; i < length; i++) {
             digits[i] = (char) (random.nextInt(10) + '0');
         }
-        return Long.parseLong(new String(digits));
-    }
-
-    public static Process exeCommand(String command) {
-        try {
-            System.out.println("Executing command: " + command);
-            Process p = Runtime.getRuntime().exec(command);
-            //p.waitFor();
-            //System.out.println("Finished command: " + command_start);
-            return p;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
+        return new String(digits);
     }
 }

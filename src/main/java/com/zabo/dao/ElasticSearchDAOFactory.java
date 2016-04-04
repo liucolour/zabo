@@ -1,5 +1,6 @@
 package com.zabo.dao;
 
+import com.zabo.post.JobPost;
 import com.zabo.utils.Utils;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
@@ -13,9 +14,15 @@ import java.net.UnknownHostException;
  * Created by zhaoboliu on 3/29/16.
  */
 public class ElasticSearchDAOFactory extends DAOFactory {
-    private Client client = null;
+    private static Client client = null;
 
     public ElasticSearchDAOFactory() {
+        init();
+    }
+
+    private static void init() {
+        if(client != null)
+            return;
         String server = Utils.getProperty("es.host");
         String clusterName = Utils.getProperty("es.cluster.name");
         Settings settings = Settings.settingsBuilder().put("cluster.name", clusterName).build();
@@ -29,27 +36,22 @@ public class ElasticSearchDAOFactory extends DAOFactory {
             client.close();
         }
     }
-    public Client getElasticSearchClient() {
+    public static Client getElasticSearchClient() {
+        if (client == null)
+            init();
         return client;
     }
 
-    @Override
-    public CarDAO getCarDAO() {
-        return new ElasticSearchCarDAO();
-    }
 
     @Override
     public JobDAO getJobDAO() {
-        return null;
+        return new ElasticSearchJobDAO();
     }
 
     @Override
-    public RentalDAO getRentalDAO() {
-        return null;
-    }
-
-    @Override
-    public TradeDAO getTradeDAO() {
+    public DAO getDAO(Class clazz) {
+        if(clazz.equals(JobPost.class))
+            return getJobDAO();
         return null;
     }
 }
