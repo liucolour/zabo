@@ -86,12 +86,12 @@ public class JobPost extends Post {
         this.num_year_experience = num_year_experience;
     }
 
-    public PaymentMethod getPaymentMethod() {
-        return paymentMethod;
+    public PaymentMethod getPayment_method() {
+        return payment_method;
     }
 
-    public void setPaymentMethod(PaymentMethod paymentMethod) {
-        this.paymentMethod = paymentMethod;
+    public void setPayment_method(PaymentMethod payment_method) {
+        this.payment_method = payment_method;
     }
 
     public enum Category {
@@ -129,7 +129,7 @@ public class JobPost extends Post {
     private float min_pay;
     private float max_pay;
     private PaymentUnit unit;
-    private PaymentMethod paymentMethod;
+    private PaymentMethod payment_method;
     private Date start_time;
     private boolean experienced_required;
     private int num_year_experience;

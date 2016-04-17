@@ -1,5 +1,8 @@
 package com.zabo.utils;
 
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -9,15 +12,16 @@ import java.util.Random;
  * Created by zhaoboliu on 3/29/16.
  */
 public class Utils {
+    private static final Logger logger = LoggerFactory.getLogger(Utils.class.getName());
     public static String getProperty(String key){
         Properties prop = new Properties();
-        InputStream input = null;
+        InputStream input;
 
         try {
             String filename = "config.properties";
             input = Utils.class.getClassLoader().getResourceAsStream(filename);
             if(input == null){
-                System.out.println("Sorry, unable to find " + filename);
+                logger.error("Unable to find {}", filename);
                 return null;
             }
 
@@ -32,11 +36,11 @@ public class Utils {
     }
 
     public static Integer getPropertyInt(String key) {
-        String val = getProperty(key);
+        String val = System.getProperty(key);
         try {
             return  Integer.parseInt(val);
         } catch (NumberFormatException e) {
-            System.out.println("Invalid key for integer");
+            logger.error("Invalid key for integer ", e);
             return null;
         }
     }

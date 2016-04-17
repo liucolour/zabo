@@ -2,6 +2,8 @@ package com.zabo.dao;
 
 import com.zabo.post.JobPost;
 import com.zabo.utils.Utils;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
@@ -14,6 +16,8 @@ import java.net.UnknownHostException;
  * Created by zhaoboliu on 3/29/16.
  */
 public class ElasticSearchDAOFactory extends DAOFactory {
+    private static final Logger logger = LoggerFactory.getLogger(ElasticSearchDAOFactory.class.getName());
+
     private static Client client = null;
 
     public ElasticSearchDAOFactory() {
@@ -23,14 +27,14 @@ public class ElasticSearchDAOFactory extends DAOFactory {
     private static void init() {
         if(client != null)
             return;
-        String server = Utils.getProperty("es.host");
-        String clusterName = Utils.getProperty("es.cluster.name");
+        String server = System.getProperty("es.host");
+        String clusterName = System.getProperty("es.cluster.name");
         Settings settings = Settings.settingsBuilder().put("cluster.name", clusterName).build();
         try {
             client = TransportClient.builder().settings(settings).build()
                     .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(server), 9300));
             // TODO: replace with log4j
-            System.out.println("ElasticSearch Transport client initialized");
+            logger.info("ElasticSearch Transport client initialized, server={} cluster name={}", server, clusterName);
         } catch (UnknownHostException e) {
             e.printStackTrace();
             client.close();

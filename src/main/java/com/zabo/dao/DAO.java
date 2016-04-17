@@ -9,6 +9,7 @@ public interface DAO<E> {
     String write(E record);
     List<String> bulkWrite(List<E> list);
     E read(String recordId);
+    List<E> query(String statement);
     void update(String recordId, E record);
-    void delete(E record);
+    void delete(String recordId);
 }

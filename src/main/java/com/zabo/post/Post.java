@@ -6,11 +6,11 @@ package com.zabo.post;
 public class Post {
     private String id;
     private String user_id;
-    private long created_Time;
-    private long modified_Time;
+    private long created_time;
+    private long modified_time;
     private String title;
     private String description;
-    private City city;
+    private Location location;
     private boolean isProvider; // false is requester
 
     public String getId() {
@@ -29,20 +29,20 @@ public class Post {
         this.user_id = user_id;
     }
 
-    public long getCreated_Time() {
-        return created_Time;
+    public long getCreated_time() {
+        return created_time;
     }
 
-    public void setCreated_Time(long created_Time) {
-        this.created_Time = created_Time;
+    public void setCreated_time(long created_time) {
+        this.created_time = created_time;
     }
 
-    public long getModified_Time() {
-        return modified_Time;
+    public long getModified_time() {
+        return modified_time;
     }
 
-    public void setModified_Time(long modified_Time) {
-        this.modified_Time = modified_Time;
+    public void setModified_time(long modified_time) {
+        this.modified_time = modified_time;
     }
 
     public String getTitle() {
@@ -61,12 +61,12 @@ public class Post {
         this.description = description;
     }
 
-    public City getCity() {
-        return city;
+    public Location getLocation() {
+        return location;
     }
 
-    public void setCity(City city) {
-        this.city = city;
+    public void setLocation(Location location) {
+        this.location = location;
     }
 
     public boolean getIsProvider() {

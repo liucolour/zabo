@@ -24,6 +24,11 @@
             <artifactId>elasticsearch</artifactId>
             <version>2.2.0</version>
         </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.1.7</version>
+        </dependency>
     </dependencies>
     <build>
         <finalName>maven-assembly-plugin</finalName>
@@ -56,6 +61,18 @@
                                         <platform>windows</platform>
                                         <platform>unix</platform>
                                     </platforms>
+
+                                    <jvmSettings>
+                                        <extraArguments>
+                                            <extraArgument>-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8888
+                                            </extraArgument>
+                                            <extraArgument>-Dcom.sun.management.jmxremote</extraArgument>
+                                            <extraArgument>-Dcom.sun.management.jmxremote.port=9999</extraArgument>
+                                            <extraArgument>-Dcom.sun.management.jmxremote.local.only=false</extraArgument>
+                                            <extraArgument>-Dcom.sun.management.jmxremote.authenticate=false</extraArgument>
+                                            <extraArgument>-Dcom.sun.management.jmxremote.ssl=false</extraArgument>
+                                        </extraArguments>
+                                    </jvmSettings>
                                 </program>
                             </programs>
                         </configuration>
