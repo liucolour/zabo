@@ -24,7 +24,16 @@ public class PostService {
     public static void addOne(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         String content = routingContext.getBodyAsString();
-        String retPost = processPostCreation(category, content);
+        String retPost = null;
+        try {
+            retPost = processPostCreation(category, content);
+            if(retPost==null || retPost.isEmpty())
+                routingContext.fail(500);
+        }catch (Throwable t) {
+            logger.error("Adding one post failed ", t);
+            routingContext.fail(500);
+            return;
+        }
         routingContext.response()
                 .setStatusCode(201)
                 .putHeader("content-type", "application/json; charset=utf-8")
@@ -34,8 +43,20 @@ public class PostService {
     public static void getOne(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
-        DAO dao = getDAO(category);
-        Post post = (Post) dao.read(id);
+
+        Post post = null;
+        try {
+            DAO dao = getDAO(category);
+            if(dao == null)
+                routingContext.fail(500);
+            post = (Post) dao.read(id);
+            if(post == null)
+                routingContext.fail(500);
+        }catch (Throwable t) {
+            logger.error("Getting one post failed ", t);
+            routingContext.fail(500);
+            return;
+        }
         routingContext.response()
             .setStatusCode(200)
             .putHeader("content-type", "application/json; charset=utf-8")
@@ -43,15 +64,23 @@ public class PostService {
     }
 
     public static void updateOne(RoutingContext routingContext) {
-        //routingContext.response().setStatusCode(501).end();
         routingContext.fail(501);
     }
 
     public static void deleteOne(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
-        DAO dao = getDAO(category);
-        dao.delete(id);
+
+        try {
+            DAO dao = getDAO(category);
+            if(dao == null)
+                routingContext.fail(500);
+            dao.delete(id);
+        }catch (Throwable t){
+            logger.error("Deleting one post failed ", t);
+            routingContext.fail(500);
+            return;
+        }
         routingContext.response().setStatusCode(204).end();
     }
 
@@ -59,8 +88,17 @@ public class PostService {
         final String category = routingContext.request().getParam("category");
         final String type = routingContext.request().getParam("type");
         String content = routingContext.getBodyAsString();
-        DAO dao = getDAOByQuery(category, type);
-        List<Post> json = dao.query(content);
+        List<Post> json = null;
+        try {
+            DAO dao = getDAOByQuery(category, type);
+            if(dao == null)
+                routingContext.fail(500);
+            json = dao.query(content);
+        }catch (Throwable t){
+            logger.error("Querying failed ", t);
+            routingContext.fail(500);
+            return;
+        }
         routingContext.response()
                 .setStatusCode(200)
                 .putHeader("content-type", "application/json; charset=utf-8")
