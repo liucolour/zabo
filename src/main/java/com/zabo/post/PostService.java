@@ -140,6 +140,7 @@ public class PostService {
         return daoFactory.getDAO(clazz);
     }
 
+    // Test only
     public static void getUploadUI(RoutingContext routingContext) {
         routingContext.response().putHeader("content-type", "text/html").end(
                 "<form action=\"/api/upload/form\" method=\"post\" enctype=\"multipart/form-data\">\n" +
@@ -150,22 +151,31 @@ public class PostService {
                         "    <div class=\"button\">\n" +
                         "        <button type=\"submit\">Send</button>\n" +
                         "    </div>" +
-                        "</form>"
+                "</form>\n" +
+                "<div>\n" +
+                "   <img src=dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
+                "</div>\n"
         );
     }
 
+    // Test Only
     public static void uploadForm(RoutingContext routingContext) {
-        routingContext.response().putHeader("Content-Type", "text/plain");
+        routingContext.response().putHeader("Content-Type", "text/html");
 
         routingContext.response().setChunked(true);
 
         for (FileUpload f : routingContext.fileUploads()) {
-            routingContext.response().write("Uploaded File name" + f.uploadedFileName() + "\n");
-            routingContext.response().write("File Name: " + f.fileName() + "\n");
-            routingContext.response().write("Size: " + f.size() + "\n");
-            routingContext.response().write("CharSet: " + f.charSet() + "\n");
-            routingContext.response().write("Content Transfer Encoding: " + f.contentTransferEncoding() + "\n");
-            routingContext.response().write("Content Type: " + f.contentType() + "\n");
+            routingContext.response().write("<div>\n");
+            routingContext.response().write("<p>Uploaded File name" + f.uploadedFileName() + "</p>");
+            routingContext.response().write("<p>File Name: " + f.fileName() + "</p>");
+            routingContext.response().write("<p>Size: " + f.size() + "</p>");
+            routingContext.response().write("<p>CharSet: " + f.charSet() + "</p>");
+            routingContext.response().write("<p>Content Transfer Encoding: " + f.contentTransferEncoding() + "</p>");
+            routingContext.response().write("<p>Content Type: " + f.contentType() + "</p>");
+            routingContext.response().write("</div>\n");
+            routingContext.response().write("<div>\n");
+            routingContext.response().write("<img src="+ f.uploadedFileName().substring(7) + " alt=\"Image Not Found\" />\n");
+            routingContext.response().write("</div>\n");
         }
 
         routingContext.response().end();

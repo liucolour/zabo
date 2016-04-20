@@ -8,6 +8,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.StaticHandler;
 
 /**
  * Created by zhaoboliu on 4/3/16.
@@ -18,6 +19,9 @@ public class RestAPIVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> fut) {
         Router router = Router.router(vertx);
+
+        //Use "webroot" as default directory to hold static files
+        router.route().handler(StaticHandler.create());
 
         router.route("/api/posts/*").consumes("application/json").handler(BodyHandler.create());
         router.route("/api/upload/*").handler(BodyHandler.create().setUploadsDirectory(System.getProperty("image.dir")));
@@ -30,11 +34,13 @@ public class RestAPIVerticle extends AbstractVerticle {
 
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/upload/form").handler(PostService::uploadForm);
-        router.get("/image/:id").handler(cxt -> {
-            String id = cxt.request().getParam("id");
-            //TODO: check file exist
-            cxt.response().sendFile("image/" + id);
-        });
+
+        //doesn't seem to need this as html tag <img src=> can transfer image directly
+//        router.get("/image/:id").handler(cxt -> {
+//            String id = cxt.request().getParam("id");
+//            //TODO: check file exist
+//            cxt.response().sendFile("image/" + id);
+//        });
 
         Integer port = Utils.getPropertyInt("http.port");
         if(port == null)
