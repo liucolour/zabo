@@ -5,6 +5,7 @@ import com.zabo.dao.DAOFactory;
 import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.RoutingContext;
 
 import java.util.HashMap;
@@ -14,6 +15,10 @@ import java.util.Map;
 /**
  * Created by zhaoboliu on 3/22/16.
  */
+
+//TODO: one more layer before dao like send post to cache
+//TODO: refactor to make DAO async, referring to
+// https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/web/angularjs/Server.java
 public class PostService {
     private static final Map<String, Class> categoryClassMap = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(PostService.class.getName());
@@ -115,7 +120,6 @@ public class PostService {
         post.setCreated_time(currentTime);
         post.setModified_time(currentTime);
 
-        //TODO: one more layer before dao like send post to cache
         String id = dao.write(post);
         post.setId(id);
         return Json.encodePrettily(post);
@@ -134,5 +138,36 @@ public class PostService {
         //TODO: throw exception for type not match
         DAOFactory daoFactory = DAOFactory.getDAOFactory(DAOFactory.DBType.valueOf(type));
         return daoFactory.getDAO(clazz);
+    }
+
+    public static void getUploadUI(RoutingContext routingContext) {
+        routingContext.response().putHeader("content-type", "text/html").end(
+                "<form action=\"/api/upload/form\" method=\"post\" enctype=\"multipart/form-data\">\n" +
+                        "    <div>\n" +
+                        "        <label for=\"name\">Select a file:</label>\n" +
+                        "        <input type=\"file\" name=\"file\" />\n" +
+                        "    </div>\n" +
+                        "    <div class=\"button\">\n" +
+                        "        <button type=\"submit\">Send</button>\n" +
+                        "    </div>" +
+                        "</form>"
+        );
+    }
+
+    public static void uploadForm(RoutingContext routingContext) {
+        routingContext.response().putHeader("Content-Type", "text/plain");
+
+        routingContext.response().setChunked(true);
+
+        for (FileUpload f : routingContext.fileUploads()) {
+            routingContext.response().write("Uploaded File name" + f.uploadedFileName() + "\n");
+            routingContext.response().write("File Name: " + f.fileName() + "\n");
+            routingContext.response().write("Size: " + f.size() + "\n");
+            routingContext.response().write("CharSet: " + f.charSet() + "\n");
+            routingContext.response().write("Content Transfer Encoding: " + f.contentTransferEncoding() + "\n");
+            routingContext.response().write("Content Type: " + f.contentType() + "\n");
+        }
+
+        routingContext.response().end();
     }
 }

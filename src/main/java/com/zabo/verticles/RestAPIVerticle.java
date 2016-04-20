@@ -19,13 +19,22 @@ public class RestAPIVerticle extends AbstractVerticle {
     public void start(Future<Void> fut) {
         Router router = Router.router(vertx);
 
-        router.route("/api/*").consumes("application/json").handler(BodyHandler.create());
+        router.route("/api/posts/*").consumes("application/json").handler(BodyHandler.create());
+        router.route("/api/upload/*").handler(BodyHandler.create().setUploadsDirectory(System.getProperty("image.dir")));
 
         router.post("/api/posts/:category").handler(PostService::addOne);
         router.get("/api/posts/:category/:id").handler(PostService::getOne);
         router.put("/api/posts/:category/:id").handler(PostService::updateOne);
         router.delete("/api/posts/:category/:id").handler(PostService::deleteOne);
         router.post("/api/posts/:category/query/:type").handler(PostService::query);
+
+        router.get("/api/upload/ui").handler(PostService::getUploadUI);
+        router.post("/api/upload/form").handler(PostService::uploadForm);
+        router.get("/image/:id").handler(cxt -> {
+            String id = cxt.request().getParam("id");
+            //TODO: check file exist
+            cxt.response().sendFile("image/" + id);
+        });
 
         Integer port = Utils.getPropertyInt("http.port");
         if(port == null)

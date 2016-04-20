@@ -33,7 +33,6 @@ public class ElasticSearchDAOFactory extends DAOFactory {
         try {
             client = TransportClient.builder().settings(settings).build()
                     .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(server), 9300));
-            // TODO: replace with log4j
             logger.info("ElasticSearch Transport client initialized, server={} cluster name={}", server, clusterName);
         } catch (UnknownHostException e) {
             e.printStackTrace();
