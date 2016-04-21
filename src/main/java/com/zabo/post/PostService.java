@@ -153,7 +153,7 @@ public class PostService {
                         "    </div>" +
                 "</form>\n" +
                 "<div>\n" +
-                "   <img src=dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
+                "   <img src=/image/dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
                 "</div>\n"
         );
     }
@@ -165,8 +165,10 @@ public class PostService {
         routingContext.response().setChunked(true);
 
         for (FileUpload f : routingContext.fileUploads()) {
+            int indx = f.uploadedFileName().lastIndexOf("/");
+            String id = f.uploadedFileName().substring(indx+1);
             routingContext.response().write("<div>\n");
-            routingContext.response().write("<p>Uploaded File name" + f.uploadedFileName() + "</p>");
+            routingContext.response().write("<p>Uploaded File id" + id + "</p>");
             routingContext.response().write("<p>File Name: " + f.fileName() + "</p>");
             routingContext.response().write("<p>Size: " + f.size() + "</p>");
             routingContext.response().write("<p>CharSet: " + f.charSet() + "</p>");
@@ -174,7 +176,7 @@ public class PostService {
             routingContext.response().write("<p>Content Type: " + f.contentType() + "</p>");
             routingContext.response().write("</div>\n");
             routingContext.response().write("<div>\n");
-            routingContext.response().write("<img src="+ f.uploadedFileName().substring(7) + " alt=\"Image Not Found\" />\n");
+            routingContext.response().write("<img src=/image/"+ id + " alt=\"Image Not Found\" />\n");
             routingContext.response().write("</div>\n");
         }
 

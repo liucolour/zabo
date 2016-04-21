@@ -8,7 +8,7 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>../log/zabo.log</file>
+        <file>../logs/zabo.log</file>
         <append>true</append>
 
         <layout class="ch.qos.logback.classic.PatternLayout">

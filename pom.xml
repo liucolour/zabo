@@ -53,6 +53,7 @@
                             <copyConfigurationDirectory>true</copyConfigurationDirectory>
                             <includeConfigurationDirectoryInClasspath>true
                             </includeConfigurationDirectoryInClasspath>
+                            <logsDirectory>logs</logsDirectory>
                             <programs>
                                 <program>
                                     <mainClass>com.zabo.Main</mainClass>
@@ -75,6 +76,29 @@
                                     </jvmSettings>
                                 </program>
                             </programs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>2.6</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <overwrite>true</overwrite>
+                            <outputDirectory>
+                                ${project.build.directory}/appassembler/${project.artifactId}/webroot/
+                            </outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>webroot</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>

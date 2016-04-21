@@ -10,6 +10,8 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 
+import java.io.File;
+
 /**
  * Created by zhaoboliu on 4/3/16.
  */
@@ -18,13 +20,19 @@ public class RestAPIVerticle extends AbstractVerticle {
 
     @Override
     public void start(Future<Void> fut) {
+        System.setProperty("basedir", System.getProperty("basedir", new File(".").getAbsolutePath()));
+
+        logger.info("Base dir is {}", System.getProperty("basedir"));
         Router router = Router.router(vertx);
 
-        //Use "webroot" as default directory to hold static files
-        router.route().handler(StaticHandler.create());
+        router.route().handler(StaticHandler
+                                .create()
+                                .setAllowRootFileSystemAccess(true)
+                                .setWebRoot(System.getProperty("basedir")+"/webroot/"));
 
         router.route("/api/posts/*").consumes("application/json").handler(BodyHandler.create());
-        router.route("/api/upload/*").handler(BodyHandler.create().setUploadsDirectory(System.getProperty("image.dir")));
+        router.route("/api/upload/*").handler(BodyHandler.create().setUploadsDirectory(
+                System.getProperty("basedir")+"/"+System.getProperty("image.dir")));
 
         router.post("/api/posts/:category").handler(PostService::addOne);
         router.get("/api/posts/:category/:id").handler(PostService::getOne);
