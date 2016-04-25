@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
     public static void main(String[] args) {
         System.setProperty(LoggerFactory.LOGGER_DELEGATE_FACTORY_CLASS_NAME, SLF4JLogDelegateFactory.class.getName());
+
         final Logger logger = LoggerFactory.getLogger(Main.class.getName());
 
         try(InputStream input = Main.class.getClassLoader().getResourceAsStream("config.properties")) {

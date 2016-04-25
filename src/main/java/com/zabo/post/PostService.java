@@ -7,6 +7,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.RoutingContext;
+import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.Map;
  */
 
 //TODO: one more layer before dao like send post to cache
-//TODO: refactor to make DAO async, referring to
+//TODO: or refactor to make DAO async and use jsonObject to DB directly without POJO post class, referring to
 // https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/web/angularjs/Server.java
 public class PostService {
     private static final Map<String, Class> categoryClassMap = new HashMap<>();
@@ -33,10 +34,10 @@ public class PostService {
         try {
             retPost = processPostCreation(category, content);
             if(retPost==null || retPost.isEmpty())
-                routingContext.fail(500);
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
         }catch (Throwable t) {
             logger.error("Adding one post failed ", t);
-            routingContext.fail(500);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response()
@@ -53,13 +54,13 @@ public class PostService {
         try {
             DAO dao = getDAO(category);
             if(dao == null)
-                routingContext.fail(500);
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             post = (Post) dao.read(id);
             if(post == null)
-                routingContext.fail(500);
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
         }catch (Throwable t) {
             logger.error("Getting one post failed ", t);
-            routingContext.fail(500);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response()
@@ -79,11 +80,11 @@ public class PostService {
         try {
             DAO dao = getDAO(category);
             if(dao == null)
-                routingContext.fail(500);
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             dao.delete(id);
         }catch (Throwable t){
             logger.error("Deleting one post failed ", t);
-            routingContext.fail(500);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response().setStatusCode(204).end();
@@ -97,11 +98,11 @@ public class PostService {
         try {
             DAO dao = getDAOByQuery(category, type);
             if(dao == null)
-                routingContext.fail(500);
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             json = dao.query(content);
         }catch (Throwable t){
             logger.error("Querying failed ", t);
-            routingContext.fail(500);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response()
@@ -160,15 +161,15 @@ public class PostService {
 
     // Test Only
     public static void uploadForm(RoutingContext routingContext) {
-        routingContext.response().putHeader("Content-Type", "text/html");
 
-        routingContext.response().setChunked(true);
 
         for (FileUpload f : routingContext.fileUploads()) {
+            routingContext.response().putHeader("Content-Type", "text/html");
+            routingContext.response().setChunked(true);
             int indx = f.uploadedFileName().lastIndexOf("/");
             String id = f.uploadedFileName().substring(indx+1);
             routingContext.response().write("<div>\n");
-            routingContext.response().write("<p>Uploaded File id" + id + "</p>");
+            routingContext.response().write("<p>Uploaded File id: " + id + "</p>");
             routingContext.response().write("<p>File Name: " + f.fileName() + "</p>");
             routingContext.response().write("<p>Size: " + f.size() + "</p>");
             routingContext.response().write("<p>CharSet: " + f.charSet() + "</p>");

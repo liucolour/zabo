@@ -27,12 +27,12 @@
         </triggeringPolicy>
     </appender>
 
-    <logger name="com.zabo" level="DEBUG">
+    <!--<logger name="com.zabo" level="DEBUG">-->
+        <!--<appender-ref ref="STDOUT" />-->
+        <!--&lt;!&ndash;<appender-ref ref="FILE" />&ndash;&gt;-->
+    <!--</logger>-->
+    <root level="debug">
         <appender-ref ref="STDOUT" />
         <!--<appender-ref ref="FILE" />-->
-    </logger>
-    <!--<root level="debug">-->
-        <!--<appender-ref ref="STDOUT" />-->
-        <!--<appender-ref ref="FILE" />-->
-    <!--</root>-->
+    </root>
 </configuration>

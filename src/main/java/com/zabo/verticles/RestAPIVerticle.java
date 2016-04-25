@@ -4,11 +4,16 @@ import com.zabo.post.PostService;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.auth.AuthProvider;
+import io.vertx.ext.auth.shiro.ShiroAuth;
+import io.vertx.ext.auth.shiro.ShiroAuthOptions;
+import io.vertx.ext.auth.shiro.ShiroAuthRealmType;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.ext.web.handler.StaticHandler;
+import io.vertx.ext.web.handler.*;
+import io.vertx.ext.web.sstore.LocalSessionStore;
 
 import java.io.File;
 
@@ -20,28 +25,57 @@ public class RestAPIVerticle extends AbstractVerticle {
 
     @Override
     public void start(Future<Void> fut) {
+        // either already specified from script using option -Dbasedir or take current absolute path running from IDE
         System.setProperty("basedir", System.getProperty("basedir", new File(".").getAbsolutePath()));
 
-        logger.info("Base dir is {}", System.getProperty("basedir"));
+        logger.debug("Base dir is {}", System.getProperty("basedir"));
+
         Router router = Router.router(vertx);
 
-        router.route().handler(StaticHandler
-                                .create()
-                                .setAllowRootFileSystemAccess(true)
-                                .setWebRoot(System.getProperty("basedir")+"/webroot/"));
+        //log http request
+        router.route().handler(LoggerHandler.create());
 
-        router.route("/api/posts/*").consumes("application/json").handler(BodyHandler.create());
-        router.route("/api/upload/*").handler(BodyHandler.create().setUploadsDirectory(
+        router.route().handler(CookieHandler.create());
+        router.route().handler(BodyHandler.create().setUploadsDirectory(
                 System.getProperty("basedir")+"/"+System.getProperty("image.dir")));
+        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+
+        AuthProvider authProvider = ShiroAuth.create(vertx, ShiroAuthRealmType.PROPERTIES, new JsonObject());
+
+        // We need a user session handler too to make sure the user is stored in the session between requests
+        router.route().handler(UserSessionHandler.create(authProvider));
+
+        router.get("/api/posts/:category/:id").handler(PostService::getOne);
+        router.get("/api/upload/ui").handler(PostService::getUploadUI);
+        router.post("/api/query/posts/:category/:type").handler(PostService::query);
+
+        // Implement logout
+        router.route("/api/logout").handler(context -> {
+            context.clearUser();
+            // Redirect back to the index page
+            context.response().putHeader("location", "/").setStatusCode(302).end();
+        });
+
+        router.route().handler(StaticHandler
+                .create()
+                .setAllowRootFileSystemAccess(true)
+                .setWebRoot(System.getProperty("basedir")+"/webroot"));
+
+        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
+        router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
+        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
+        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
+
+        // Handles the actual login
+        router.route("/api/login").handler(FormLoginHandler.create(authProvider)
+                .setDirectLoggedInOKURL("/index.html")
+                .setReturnURLParam(null));
 
         router.post("/api/posts/:category").handler(PostService::addOne);
-        router.get("/api/posts/:category/:id").handler(PostService::getOne);
         router.put("/api/posts/:category/:id").handler(PostService::updateOne);
         router.delete("/api/posts/:category/:id").handler(PostService::deleteOne);
-        router.post("/api/posts/:category/query/:type").handler(PostService::query);
-
-        router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/upload/form").handler(PostService::uploadForm);
+
 
         //doesn't seem to need this as html tag <img src=> can transfer image directly
 //        router.get("/image/:id").handler(cxt -> {
