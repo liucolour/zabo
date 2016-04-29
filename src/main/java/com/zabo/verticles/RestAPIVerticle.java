@@ -1,19 +1,23 @@
 package com.zabo.verticles;
 
-import com.zabo.post.PostService;
+import com.zabo.auth.DBShiroAuthorizingRealm;
+import com.zabo.services.AccountService;
+import com.zabo.services.PostService;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.shiro.ShiroAuth;
-import io.vertx.ext.auth.shiro.ShiroAuthOptions;
-import io.vertx.ext.auth.shiro.ShiroAuthRealmType;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.*;
 import io.vertx.ext.web.sstore.LocalSessionStore;
+import org.apache.shiro.authc.credential.CredentialsMatcher;
+import org.apache.shiro.authc.credential.HashedCredentialsMatcher;
+import org.apache.shiro.authc.credential.Sha512CredentialsMatcher;
+import org.apache.shiro.crypto.hash.Sha512Hash;
+import org.apache.shiro.realm.AuthorizingRealm;
 
 import java.io.File;
 
@@ -40,14 +44,22 @@ public class RestAPIVerticle extends AbstractVerticle {
                 System.getProperty("basedir")+"/"+System.getProperty("image.dir")));
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
 
-        AuthProvider authProvider = ShiroAuth.create(vertx, ShiroAuthRealmType.PROPERTIES, new JsonObject());
+        AuthorizingRealm realm = new DBShiroAuthorizingRealm();
+        HashedCredentialsMatcher credentialsMatcher = new HashedCredentialsMatcher();
+        credentialsMatcher.setHashAlgorithmName(Sha512Hash.ALGORITHM_NAME);
+        credentialsMatcher.setStoredCredentialsHexEncoded(false);
+        //TODO: credentialsMatcher.setHashIterations(10);
+        realm.setCredentialsMatcher(credentialsMatcher);
+        AuthProvider authProvider = ShiroAuth.create(vertx, realm);
 
         // We need a user session handler too to make sure the user is stored in the session between requests
         router.route().handler(UserSessionHandler.create(authProvider));
 
+        // public API without authentication required
         router.get("/api/posts/:category/:id").handler(PostService::getOne);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/query/posts/:category/:type").handler(PostService::query);
+        router.post("/api/account").handler(AccountService::createUserAccount);
 
         // Implement logout
         router.route("/api/logout").handler(context -> {
@@ -61,16 +73,18 @@ public class RestAPIVerticle extends AbstractVerticle {
                 .setAllowRootFileSystemAccess(true)
                 .setWebRoot(System.getProperty("basedir")+"/webroot"));
 
-        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
-        router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
-        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
-        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, "/login.html"));
+        String loginPage = "/login.html";
+        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
 
         // Handles the actual login
         router.route("/api/login").handler(FormLoginHandler.create(authProvider)
                 .setDirectLoggedInOKURL("/index.html")
                 .setReturnURLParam(null));
 
+        // public API with authentication required
         router.post("/api/posts/:category").handler(PostService::addOne);
         router.put("/api/posts/:category/:id").handler(PostService::updateOne);
         router.delete("/api/posts/:category/:id").handler(PostService::deleteOne);

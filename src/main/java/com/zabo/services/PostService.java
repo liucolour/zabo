@@ -1,7 +1,9 @@
-package com.zabo.post;
+package com.zabo.services;
 
 import com.zabo.dao.DAO;
 import com.zabo.dao.DAOFactory;
+import com.zabo.post.JobPost;
+import com.zabo.post.Post;
 import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -29,6 +31,9 @@ public class PostService {
 
     public static void addOne(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
+        if(category == null)
+            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+
         String content = routingContext.getBodyAsString();
         String retPost = null;
         try {
@@ -49,6 +54,8 @@ public class PostService {
     public static void getOne(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
+        if(category == null || id == null)
+            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
 
         Post post = null;
         try {
@@ -77,6 +84,9 @@ public class PostService {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
 
+        if(category == null || id == null)
+            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+
         try {
             DAO dao = getDAO(category);
             if(dao == null)
@@ -93,6 +103,10 @@ public class PostService {
     public static void query(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String type = routingContext.request().getParam("type");
+
+        if(category == null || type == null)
+            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+
         String content = routingContext.getBodyAsString();
         List<Post> json = null;
         try {

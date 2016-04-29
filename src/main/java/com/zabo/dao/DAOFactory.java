@@ -1,5 +1,6 @@
 package com.zabo.dao;
 
+import com.zabo.auth.UserAuthInfo;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
@@ -18,6 +19,8 @@ public abstract class DAOFactory {
     public abstract JobDAO getJobDAO();
 
     public abstract DAO getDAO(Class clazz);
+
+    public abstract UserAuthInfoDAO getUserAuthInfoDAO();
 
     public static DAOFactory getDAOFactorybyConfig() {
         String configDBType = System.getProperty("database.default");
