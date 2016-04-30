@@ -1,5 +1,6 @@
 package com.zabo.dao;
 
+import com.zabo.auth.Role;
 import com.zabo.auth.UserAuthInfo;
 import com.zabo.post.JobPost;
 import com.zabo.utils.Utils;
@@ -26,6 +27,7 @@ public class ElasticSearchDAOFactory extends DAOFactory {
     }
 
     private static void init() {
+        //TODO: add mapping
         if(client != null)
             return;
         String server = System.getProperty("es.host");
@@ -53,16 +55,14 @@ public class ElasticSearchDAOFactory extends DAOFactory {
     }
 
     @Override
-    public UserAuthInfoDAO getUserAuthInfoDAO() {
-        return new ElasticSearchUserAuthInfoDAO();
+    public UserAuthInfoDAO getUserAuthInfoDAO(Role role) {
+        return new ElasticSearchUserAuthInfoDAO(role);
     }
 
     @Override
     public DAO getDAO(Class clazz) {
         if(clazz.equals(JobPost.class))
             return getJobDAO();
-        if(clazz.equals(UserAuthInfoDAO.class))
-            return getUserAuthInfoDAO();
         return null;
     }
 }

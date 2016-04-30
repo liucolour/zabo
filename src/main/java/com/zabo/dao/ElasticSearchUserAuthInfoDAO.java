@@ -1,11 +1,13 @@
 package com.zabo.dao;
 
+import com.zabo.auth.Role;
 import com.zabo.auth.UserAuthInfo;
 import com.zabo.post.JobPost;
 import io.vertx.core.json.Json;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.LinkedList;
@@ -15,9 +17,15 @@ import java.util.List;
  * Created by zhaoboliu on 4/28/16.
  */
 public class ElasticSearchUserAuthInfoDAO implements UserAuthInfoDAO {
-    public final static String index = "account_index";
+    public String index;
     public final static String type = "user_auth";
 
+    public ElasticSearchUserAuthInfoDAO(Role role){
+        if(role == Role.ADMIN)
+            index = "admin_account_index";
+        else
+            index = "user_account_index";
+    }
     @Override
     public String write(UserAuthInfo record) {
         String json = Json.encodePrettily(record);
@@ -43,19 +51,22 @@ public class ElasticSearchUserAuthInfoDAO implements UserAuthInfoDAO {
 
     @Override
     public List<UserAuthInfo> query(String statement) {
-        SearchResponse response = ElasticSearchDAOFactory.getElasticSearchClient()
-                .prepareSearch(index)
-                .setTypes(type)
-                .setQuery(statement)
-                .execute()
-                .actionGet();
-
         List<UserAuthInfo> res = new LinkedList<>();
-        response.getHits().forEach(c -> {
-            UserAuthInfo user = Json.decodeValue(c.getSourceAsString(), UserAuthInfo.class);
-            user.setId(c.getId());
-            res.add(user);
-        });
+        try {
+            SearchResponse response = ElasticSearchDAOFactory.getElasticSearchClient()
+                    .prepareSearch(index)
+                    .setTypes(type)
+                    .setQuery(statement)
+                    .execute()
+                    .actionGet();
+            response.getHits().forEach(c -> {
+                UserAuthInfo user = Json.decodeValue(c.getSourceAsString(), UserAuthInfo.class);
+                user.setId(c.getId());
+                res.add(user);
+            });
+        }catch (IndexNotFoundException e){
+            // ignore
+        }
 
         return res;
     }

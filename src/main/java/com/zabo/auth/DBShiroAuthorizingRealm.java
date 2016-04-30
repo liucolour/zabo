@@ -5,6 +5,7 @@ import com.zabo.dao.UserAuthInfoDAO;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
+import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.codec.Base64;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
@@ -12,13 +13,20 @@ import org.apache.shiro.util.ByteSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Created by zhaoboliu on 4/27/16.
  */
 public class DBShiroAuthorizingRealm extends AuthorizingRealm {
     private static final Logger logger = LoggerFactory.getLogger(DBShiroAuthorizingRealm.class);
+
+    private Role role;
+    public DBShiroAuthorizingRealm(Role role){
+        this.role = role;
+    }
 
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
@@ -29,7 +37,35 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         String username = (String) getAvailablePrincipal(principals);
 
-        return null;
+        if (username == null) {
+            throw new AccountException("Null usernames are not allowed by this realm.");
+        }
+
+        //TODO: make query generic and not bound to elasticsearch here
+        String queryUserStatement = "{" +
+                " \"query\": {" +
+                "   \"constant_score\": {" +
+                "     \"filter\": {" +
+                "        \"term\": " +
+                "            {\"user_id\": \"" + username + "\"}" +
+                "     }" +
+                "   }" +
+                " }" +
+                "}";
+
+        List<UserAuthInfo> authInfos;
+        try {
+            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO(role).query(queryUserStatement);
+        }catch (Throwable e) {
+            logger.error("Data Access error: ", e);
+            throw new AuthenticationException(e);
+        }
+
+        Set<String> roleNames = new HashSet<>();
+        roleNames.add(authInfos.get(0).getRole().toString());
+
+        SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(roleNames);
+        return info;
     }
 
     @Override
@@ -42,11 +78,11 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
         }
 
         //TODO: make query generic and not bound to elasticsearch here
-        String queryStatement = "{" +
+        String queryUserStatement = "{" +
                 " \"query\": {" +
-                "   \"filtered\": {" +
+                "   \"constant_score\": {" +
                 "     \"filter\": {" +
-                "        \"match\": " +
+                "        \"term\": " +
                 "            {\"user_id\": \"" + username + "\"}" +
                 "     }" +
                 "   }" +
@@ -55,7 +91,7 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         List<UserAuthInfo> authInfos;
         try {
-            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO().query(queryStatement);
+            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO(role).query(queryUserStatement);
         }catch (Throwable e) {
             logger.error("Data Access error: ", e);
             throw new AuthenticationException(e);
