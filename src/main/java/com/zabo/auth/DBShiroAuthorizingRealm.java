@@ -41,17 +41,7 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        //TODO: make query generic and not bound to elasticsearch here
-        String queryUserStatement = "{" +
-                " \"query\": {" +
-                "   \"constant_score\": {" +
-                "     \"filter\": {" +
-                "        \"term\": " +
-                "            {\"user_id\": \"" + username + "\"}" +
-                "     }" +
-                "   }" +
-                " }" +
-                "}";
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
         List<UserAuthInfo> authInfos;
         try {
@@ -77,17 +67,7 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        //TODO: make query generic and not bound to elasticsearch here
-        String queryUserStatement = "{" +
-                " \"query\": {" +
-                "   \"constant_score\": {" +
-                "     \"filter\": {" +
-                "        \"term\": " +
-                "            {\"user_id\": \"" + username + "\"}" +
-                "     }" +
-                "   }" +
-                " }" +
-                "}";
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
         List<UserAuthInfo> authInfos;
         try {

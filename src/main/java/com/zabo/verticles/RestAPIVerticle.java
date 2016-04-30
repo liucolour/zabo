@@ -79,7 +79,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.get("/api/posts/:category/:id").handler(PostService::getOne);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/query/posts/:category/:type").handler(PostService::query);
-        router.post("/api/account").handler(AccountService::createUserAccount);
+        router.post("/api/user/account").handler(AccountService::createUserAccount);
 
         // Implement logout
         router.route("/api/logout").handler(context -> {
@@ -99,6 +99,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
         router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER").addAuthority("role:ADMIN"));
         router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+
         router.delete("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:USER").addAuthority("role:ADMIN"));
         router.put("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:USER"));
 
@@ -109,7 +110,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.post("/api/admin/account").handler(AccountService::createAdminAccount);
 
         // Handles the user login
-        router.route("/api/login").handler(FormLoginHandler.create(authProvider)
+        router.route("/api/user/login").handler(FormLoginHandler.create(authProvider)
                 .setDirectLoggedInOKURL("/index.html")
                 .setReturnURLParam(null));
 
@@ -124,11 +125,11 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.delete("/api/posts/:category/:id").handler(PostService::deleteOne);
         router.post("/api/upload/form").handler(PostService::uploadForm);
 
-        router.delete("/api/user/account/:id").handler(AccountService::deleteUserAccount);
-        router.put("/api/user/account/:id").handler(AccountService::updateUserAccount);
+        router.delete("/api/user/account").handler(AccountService::deleteUserAccount);
+        router.put("/api/user/account").handler(AccountService::updateUserAccount);
 
-        router.delete("/api/admin/account/:id").handler(AccountService::deleteAdminAccount);
-        router.put("/api/admin/account/:id").handler(AccountService::updateAdminAccount);
+        router.delete("/api/admin/account").handler(AccountService::deleteAdminAccount);
+        router.put("/api/admin/account").handler(AccountService::updateAdminAccount);
 
         //doesn't seem to need this as html tag <img src=> can transfer image directly
 //        router.get("/image/:id").handler(cxt -> {

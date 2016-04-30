@@ -9,6 +9,8 @@ import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.List;
  * Created by zhaoboliu on 4/28/16.
  */
 public class ElasticSearchUserAuthInfoDAO implements UserAuthInfoDAO {
+
     public String index;
     public final static String type = "user_auth";
 
