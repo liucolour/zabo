@@ -72,8 +72,8 @@ public class AccountService {
 
     private static void createAccount(RoutingContext ctx, Role role) {
         JsonObject json = ctx.getBodyAsJson();
-        String user_id = json.getString("user_id");
-        String password = json.getString("password");
+        String user_id = json.getString("user_id").toLowerCase().trim();
+        String password = json.getString("password").trim();
 
         if(user_id == null || password == null)
             ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());

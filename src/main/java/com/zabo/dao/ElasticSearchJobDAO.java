@@ -18,8 +18,8 @@ import java.util.List;
  * Created by zhaoboliu on 3/30/16.
  */
 public class ElasticSearchJobDAO implements JobDAO {
-    public final static String index = "job_index";
-    public final static String type = "job_post";
+    public final static String index = "post_index";
+    public final static String type = "job";
 
     @Override
     public String write(JobPost record) {

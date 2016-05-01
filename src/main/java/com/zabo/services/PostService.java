@@ -1,16 +1,20 @@
 package com.zabo.services;
 
+import com.zabo.auth.UserAuthInfo;
 import com.zabo.dao.DAO;
 import com.zabo.dao.DAOFactory;
 import com.zabo.post.JobPost;
 import com.zabo.post.Post;
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.auth.User;
 import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.RoutingContext;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,114 +27,216 @@ import java.util.Map;
 //TODO: or refactor to make DAO async and use jsonObject to DB directly without POJO post class, referring to
 // https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/web/angularjs/Server.java
 public class PostService {
-    private static final Map<String, Class> categoryClassMap = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(PostService.class.getName());
+
+    private static final String queryType = System.getProperty("query.type");
+
+    private static final Map<String, Class> categoryClassMap = new HashMap<>();
+
+
     static {
         categoryClassMap.put("job", JobPost.class);
     }
 
     public static void addPost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
-        if(category == null)
+        if(category == null) {
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
 
         String content = routingContext.getBodyAsString();
         String retPost = null;
         try {
-            retPost = processPostCreation(category, content);
-            if(retPost==null || retPost.isEmpty())
+            retPost = processPostCreation(routingContext, category, content);
+            if(retPost==null || retPost.isEmpty()) {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
         }catch (Throwable t) {
-            logger.error("Adding one post failed ", t);
+            logger.error("Adding post failed ", t);
             routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response()
-                .setStatusCode(201)
+                .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/json; charset=utf-8")
                 .end(retPost);
     }
 
-    public static void getPost(RoutingContext routingContext) {
+    public static void getPostById(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
-        if(category == null || id == null)
+        if(category == null || id == null) {
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
 
         Post post = null;
         try {
             DAO dao = getDAO(category);
-            if(dao == null)
+            if(dao == null) {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
             post = (Post) dao.read(id);
-            if(post == null)
+            if(post == null) {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
         }catch (Throwable t) {
-            logger.error("Getting one post failed ", t);
+            logger.error("Getting post failed ", t);
             routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
         routingContext.response()
-            .setStatusCode(200)
+            .setStatusCode(HttpResponseStatus.OK.getCode())
             .putHeader("content-type", "application/json; charset=utf-8")
             .end(Json.encodePrettily(post));
     }
 
+    public static void queyUserPosts(RoutingContext routingContext) {
+        User ctxUser = routingContext.user();
+        ctxUser.isAuthorised("role:USER", res -> {
+            if(res.succeeded()){
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    //TODO: support any category
+                    DAO dao = getDAO("job");
+                    if(dao == null) {
+                        routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                        return;
+                    }
+                    // for user, use login user_id
+                    String user_id = routingContext.user().principal().getString("username");
+                    queyPostsByUserId(routingContext, user_id);
+                }
+            }
+        });
+
+        ctxUser.isAuthorised("role:ADMIN", res -> {
+            if(res.succeeded()) {
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    // for admin, use user_id from json body in request
+                    String user_id = routingContext.getBodyAsJson().getString("user_id");
+                    queyPostsByUserId(routingContext, user_id);
+                }
+            }
+        });
+    }
+
+    private static void queyPostsByUserId(RoutingContext routingContext, String user_id){
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), user_id);
+        //TODO: support any category
+        queryPostsONDAO(routingContext, "job", queryType, queryUserStatement);
+    }
+
+    //TODO: update post
     public static void updatePost(RoutingContext routingContext) {
         routingContext.fail(501);
     }
 
-    public static void deletePost(RoutingContext routingContext) {
+    public static void deletePostWithRole(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
 
-        if(category == null || id == null)
+        if(category == null || id == null) {
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
 
+        User ctxUser = routingContext.user();
+        ctxUser.isAuthorised("role:USER", res -> {
+            //User can only delete post created by him/her
+            if(res.succeeded()){
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    DAO dao = getDAO(category);
+                    if(dao == null) {
+                        routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                        return;
+                    }
+                    Post post = (Post)dao.read(id);
+                    if(post == null) {
+                        routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                        return;
+                    }
+                    if(!post.getUser_id().equals(ctxUser.principal().getString("username"))) {
+                        routingContext.fail(HttpResponseStatus.FORBIDDEN.getCode());
+                        return;
+                    }
+                    deletePost(routingContext, category,id);
+                }
+            }
+        });
+
+        ctxUser.isAuthorised("role:ADMIN", res -> {
+            //Admin can delete anyone's post
+            if(res.succeeded()) {
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    deletePost(routingContext,category,id);
+                }
+            }
+        });
+    }
+
+    private static void deletePost(RoutingContext routingContext, String category, String id) {
         try {
             DAO dao = getDAO(category);
-            if(dao == null)
+            if (dao == null) {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
             dao.delete(id);
-        }catch (Throwable t){
-            logger.error("Deleting one post failed ", t);
+        } catch (Throwable e){
+            logger.error("Deleting post failed ", e);
             routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
-        routingContext.response().setStatusCode(204).end();
+        routingContext.response().setStatusCode(HttpResponseStatus.OK.getCode()).end("Deleted post id :"+id);
     }
 
     public static void queryPosts(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
-        final String type = routingContext.request().getParam("type");
 
-        if(category == null || type == null)
+        if(category == null) {
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-
-        String content = routingContext.getBodyAsString();
-        List<Post> json = null;
-        try {
-            DAO dao = getDAOByQuery(category, type);
-            if(dao == null)
-                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-            json = dao.query(content);
-        }catch (Throwable t){
-            logger.error("Querying failed ", t);
-            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;
         }
-        routingContext.response()
-                .setStatusCode(200)
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(Json.encodePrettily(json));
+
+        String content = routingContext.getBodyAsString();
+        queryPostsONDAO(routingContext, category, queryType, content);
     }
 
-    private static String processPostCreation(String category, String content) {
+    private static void queryPostsONDAO(RoutingContext routingContext, String category, String type, String statement){
+        List<Post> posts = new ArrayList<>();
+        try {
+            DAO dao = getDAOByQuery(category, type);
+            if(dao == null) {
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+            posts = dao.query(statement);
+        }catch (Throwable t){
+            logger.error("Querying posts failed ", t);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+        }
+
+        routingContext.response()
+                .setStatusCode(HttpResponseStatus.OK.getCode())
+                .putHeader("content-type", "application/json; charset=utf-8")
+                .end(Json.encodePrettily(posts));;
+    }
+    private static String processPostCreation(RoutingContext routingContext,String category, String content) {
         String cleanCategory = category.trim().toLowerCase();
         Class clazz = categoryClassMap.get(cleanCategory);
         DAO dao = getDAO(category);
 
         Post post = (Post) Json.decodeValue(content, clazz);
+        User ctxUser = routingContext.user();
+        post.setUser_id(ctxUser.principal().getString("username"));
+
         long currentTime = System.currentTimeMillis();
         post.setCreated_time(currentTime);
         post.setModified_time(currentTime);

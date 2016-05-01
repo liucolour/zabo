@@ -56,9 +56,9 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.route().handler(UserSessionHandler.create(authProvider));
 
         // public API without authentication required
-        router.get("/api/posts/:category/:id").handler(PostService::getPost);
+        router.get("/api/posts/category/:category/:id").handler(PostService::getPostById);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
-        router.post("/api/query/posts/:category/:type").handler(PostService::queryPosts);
+        router.post("/api/query/posts/:category").handler(PostService::queryPosts);
         router.post("/api/user/account").handler(AccountService::createUserAccount);
 
         // Implement logout
@@ -68,18 +68,14 @@ public class RestAPIVerticle extends AbstractVerticle {
             context.response().putHeader("location", "/").setStatusCode(302).end();
         });
 
-        router.route().handler(StaticHandler
-                .create()
-                .setAllowRootFileSystemAccess(true)
-                .setWebRoot(System.getProperty("basedir") + "/webroot"));
-
         String loginPage = "/login.html";
         String adminLoginPage = "/adminLogin.html";
 
-        // TODO: Handle authorization for both user and admin in PostService for deletion
-        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
-        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
-        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+        // Handle authorization for both user and admin in PostService for deletion and getPosts of specific user
+        router.post("/api/posts/user/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.delete("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.put("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+        router.post("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
 
         router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
 
@@ -104,9 +100,10 @@ public class RestAPIVerticle extends AbstractVerticle {
                 .setReturnURLParam(null));
 
         // public API with authentication required
-        router.post("/api/posts/:category").handler(PostService::addPost);
-        router.put("/api/posts/:category/:id").handler(PostService::updatePost);
-        router.delete("/api/posts/:category/:id").handler(PostService::deletePost);
+        router.post("/api/posts/user").handler(PostService::queyUserPosts);
+        router.post("/api/posts/category/:category").handler(PostService::addPost);
+        router.put("/api/posts/category/:category/:id").handler(PostService::updatePost);
+        router.delete("/api/posts/category/:category/:id").handler(PostService::deletePostWithRole);
         router.post("/api/upload/form").handler(PostService::uploadForm);
 
         router.delete("/api/user/account").handler(AccountService::deleteUserAccount);
@@ -127,6 +124,11 @@ public class RestAPIVerticle extends AbstractVerticle {
 //            //TODO: check file exist
 //            cxt.response().sendFile("image/" + id);
 //        });
+
+        router.route().handler(StaticHandler
+                .create()
+                .setAllowRootFileSystemAccess(true)
+                .setWebRoot(System.getProperty("basedir") + "/webroot"));
 
         Integer port = Utils.getPropertyInt("http.port");
         if(port == null)

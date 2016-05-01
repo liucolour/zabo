@@ -50,6 +50,11 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AuthenticationException(e);
         }
 
+        if(authInfos == null || authInfos.size() == 0) {
+            logger.warn("No account found for user " + username);
+            throw new UnknownAccountException("No account found for user [" + username + "]");
+        }
+
         Set<String> roleNames = new HashSet<>();
         roleNames.add(authInfos.get(0).getRole().toString());
 
@@ -76,12 +81,13 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AuthenticationException(e);
         }
 
-        String dbPassword = authInfos.get(0).getPassword();
-        String salt = authInfos.get(0).getSalt();
-
-        if (dbPassword == null) {
+        if(authInfos == null || authInfos.size() == 0) {
+            logger.warn("No account found for user " + username);
             throw new UnknownAccountException("No account found for user [" + username + "]");
         }
+
+        String dbPassword = authInfos.get(0).getPassword();
+        String salt = authInfos.get(0).getSalt();
 
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(
                 username,

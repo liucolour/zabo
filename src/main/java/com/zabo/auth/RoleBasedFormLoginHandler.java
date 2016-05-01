@@ -71,7 +71,7 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
     public void handle(RoutingContext context) {
         HttpServerRequest req = context.request();
         if (req.method() != HttpMethod.POST) {
-            context.fail(405); // Must be a POST
+            context.fail(HttpResponseStatus.METHOD_NOT_ALLOWED.getCode()); // Must be a POST
             return;
         }
 
@@ -80,12 +80,12 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
         }
 
         MultiMap params = req.formAttributes();
-        String username = params.get(usernameParam);
-        String password = params.get(passwordParam);
+        String username = params.get(usernameParam).toLowerCase().trim();
+        String password = params.get(passwordParam).trim();
 
         if (username == null || password == null) {
             logger.warn("No username or password provided in form - did you forget to include a BodyHandler?");
-            context.fail(400);
+            context.fail(HttpResponseStatus.BAD_REQUEST.getCode());
             return;
         }
 
@@ -136,7 +136,7 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
         });
     }
 
-
+    //TODO: test 307
     private void doRedirect(HttpServerResponse response, String url) {
         response.putHeader("location", url).setStatusCode(302).end();
     }
