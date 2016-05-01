@@ -55,8 +55,8 @@ public class ElasticSearchDAOFactory extends DAOFactory {
     }
 
     @Override
-    public UserAuthInfoDAO getUserAuthInfoDAO(Role role) {
-        return new ElasticSearchUserAuthInfoDAO(role);
+    public UserAuthInfoDAO getUserAuthInfoDAO() {
+        return new ElasticSearchUserAuthInfoDAO();
     }
 
     @Override

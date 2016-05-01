@@ -1,34 +1,24 @@
 package com.zabo.verticles;
 
-import com.zabo.account.Account;
 import com.zabo.auth.DBShiroAuthorizingRealm;
-import com.zabo.auth.Role;
+import com.zabo.auth.RoleBasedFormLoginHandler;
 import com.zabo.services.AccountService;
 import com.zabo.services.PostService;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.shiro.ShiroAuth;
-import io.vertx.ext.auth.shiro.ShiroAuthRealmType;
-import io.vertx.ext.auth.shiro.impl.PropertiesAuthProvider;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.*;
 import io.vertx.ext.web.sstore.LocalSessionStore;
-import org.apache.shiro.authc.credential.CredentialsMatcher;
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher;
-import org.apache.shiro.authc.credential.Sha512CredentialsMatcher;
-import org.apache.shiro.authc.pam.AtLeastOneSuccessfulStrategy;
-import org.apache.shiro.authc.pam.ModularRealmAuthenticator;
 import org.apache.shiro.crypto.hash.Sha512Hash;
-import org.apache.shiro.mgt.DefaultSecurityManager;
 import org.apache.shiro.realm.AuthorizingRealm;
 
 import java.io.File;
-import java.util.Arrays;
 
 /**
  * Created by zhaoboliu on 4/3/16.
@@ -53,32 +43,22 @@ public class RestAPIVerticle extends AbstractVerticle {
                 System.getProperty("basedir") + "/" + System.getProperty("image.dir")));
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
 
-        AuthorizingRealm userRealm = new DBShiroAuthorizingRealm(Role.USER);
-        AuthorizingRealm adminRealm = new DBShiroAuthorizingRealm(Role.ADMIN);
+        AuthorizingRealm userRealm = new DBShiroAuthorizingRealm();
         HashedCredentialsMatcher credentialsMatcher = new HashedCredentialsMatcher();
         credentialsMatcher.setHashAlgorithmName(Sha512Hash.ALGORITHM_NAME);
         credentialsMatcher.setStoredCredentialsHexEncoded(false);
         //TODO: credentialsMatcher.setHashIterations(10);
         userRealm.setCredentialsMatcher(credentialsMatcher);
-        adminRealm.setCredentialsMatcher(credentialsMatcher);
 
         AuthProvider authProvider = ShiroAuth.create(vertx, userRealm);
-        AuthProvider adminAuthProvider = ShiroAuth.create(vertx, adminRealm);
-
-//        DefaultSecurityManager securityManager = new DefaultSecurityManager();
-//        ModularRealmAuthenticator authenticator = new ModularRealmAuthenticator();
-//        authenticator.setAuthenticationStrategy(new AtLeastOneSuccessfulStrategy());
-//        authenticator.setRealms(Arrays.asList(DBrealm, PropertiesAuthProvider.createRealm(new JsonObject())));
-//        securityManager.setAuthenticator(authenticator);
-
 
         // We need a user session handler too to make sure the user is stored in the session between requests
         router.route().handler(UserSessionHandler.create(authProvider));
 
         // public API without authentication required
-        router.get("/api/posts/:category/:id").handler(PostService::getOne);
+        router.get("/api/posts/:category/:id").handler(PostService::getPost);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
-        router.post("/api/query/posts/:category/:type").handler(PostService::query);
+        router.post("/api/query/posts/:category/:type").handler(PostService::queryPosts);
         router.post("/api/user/account").handler(AccountService::createUserAccount);
 
         // Implement logout
@@ -95,41 +75,51 @@ public class RestAPIVerticle extends AbstractVerticle {
 
         String loginPage = "/login.html";
         String adminLoginPage = "/adminLogin.html";
-        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
-        router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
-        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER").addAuthority("role:ADMIN"));
-        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
 
-        router.delete("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:USER").addAuthority("role:ADMIN"));
+        // TODO: Handle authorization for both user and admin in PostService for deletion
+        router.delete("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+        router.put("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+        router.post("/api/posts/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+
+        router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+
+        // Handle authorization for both user and admin in AccountService for deletion
+        router.delete("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage));
         router.put("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:USER"));
 
-        router.delete("/api/admin/account").handler(RedirectAuthHandler.create(adminAuthProvider,adminLoginPage).addAuthority("role:ADMIN"));
-        router.put("/api/admin/account").handler(RedirectAuthHandler.create(adminAuthProvider,adminLoginPage).addAuthority("role:ADMIN"));
-        router.post("/api/admin/account").handler(RedirectAuthHandler.create(adminAuthProvider, adminLoginPage).addAuthority("role:ADMIN"));
+        router.delete("/api/admin/account").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
+        router.put("/api/admin/account").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
+        router.post("/api/admin/account").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:ADMIN"));
 
         router.post("/api/admin/account").handler(AccountService::createAdminAccount);
 
         // Handles the user login
-        router.route("/api/user/login").handler(FormLoginHandler.create(authProvider)
+        router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:USER")
                 .setDirectLoggedInOKURL("/index.html")
                 .setReturnURLParam(null));
 
         // Handles the admin login
-        router.route("/api/admin/login").handler(FormLoginHandler.create(adminAuthProvider)
+        router.route("/api/admin/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:ADMIN")
                 .setDirectLoggedInOKURL("/admin.html")
                 .setReturnURLParam(null));
 
         // public API with authentication required
-        router.post("/api/posts/:category").handler(PostService::addOne);
-        router.put("/api/posts/:category/:id").handler(PostService::updateOne);
-        router.delete("/api/posts/:category/:id").handler(PostService::deleteOne);
+        router.post("/api/posts/:category").handler(PostService::addPost);
+        router.put("/api/posts/:category/:id").handler(PostService::updatePost);
+        router.delete("/api/posts/:category/:id").handler(PostService::deletePost);
         router.post("/api/upload/form").handler(PostService::uploadForm);
 
         router.delete("/api/user/account").handler(AccountService::deleteUserAccount);
         router.put("/api/user/account").handler(AccountService::updateUserAccount);
+        //TODO: implement get
+//        router.get("/api/user/account").handler(AccountService::getAllUserAccounts);
+//        router.get("/api/user/account/:user_id").handler(AccountService::getOneUserAccount);
 
         router.delete("/api/admin/account").handler(AccountService::deleteAdminAccount);
         router.put("/api/admin/account").handler(AccountService::updateAdminAccount);
+        //TODO: implement get
+//        router.get("/api/admin/account").handler(AccountService::getAllAdminAccount);
+//        router.get("/api/admin/account/:user_id").handler(AccountService::getOneAdminAccount);
 
         //doesn't seem to need this as html tag <img src=> can transfer image directly
 //        router.get("/image/:id").handler(cxt -> {

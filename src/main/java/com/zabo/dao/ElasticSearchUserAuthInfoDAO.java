@@ -20,15 +20,9 @@ import java.util.List;
  */
 public class ElasticSearchUserAuthInfoDAO implements UserAuthInfoDAO {
 
-    public String index;
+    public String index = "account_auth_index";
     public final static String type = "user_auth";
 
-    public ElasticSearchUserAuthInfoDAO(Role role){
-        if(role == Role.ADMIN)
-            index = "admin_account_index";
-        else
-            index = "user_account_index";
-    }
     @Override
     public String write(UserAuthInfo record) {
         String json = Json.encodePrettily(record);

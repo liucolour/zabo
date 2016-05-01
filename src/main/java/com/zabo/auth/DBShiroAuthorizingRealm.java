@@ -1,7 +1,6 @@
 package com.zabo.auth;
 
 import com.zabo.dao.DAOFactory;
-import com.zabo.dao.UserAuthInfoDAO;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
@@ -24,8 +23,8 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
     private static final Logger logger = LoggerFactory.getLogger(DBShiroAuthorizingRealm.class);
 
     private Role role;
-    public DBShiroAuthorizingRealm(Role role){
-        this.role = role;
+    public DBShiroAuthorizingRealm(){
+        this.role = null;
     }
 
     @Override
@@ -45,7 +44,7 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         List<UserAuthInfo> authInfos;
         try {
-            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO(role).query(queryUserStatement);
+            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO().query(queryUserStatement);
         }catch (Throwable e) {
             logger.error("Data Access error: ", e);
             throw new AuthenticationException(e);
@@ -71,7 +70,7 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         List<UserAuthInfo> authInfos;
         try {
-            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO(role).query(queryUserStatement);
+            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO().query(queryUserStatement);
         }catch (Throwable e) {
             logger.error("Data Access error: ", e);
             throw new AuthenticationException(e);
@@ -84,7 +83,8 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new UnknownAccountException("No account found for user [" + username + "]");
         }
 
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username,
+        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(
+                username,
                 dbPassword.toCharArray(),
                 ByteSource.Util.bytes(Base64.decode(salt.getBytes())),
                 getName());

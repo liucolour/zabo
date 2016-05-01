@@ -4,15 +4,12 @@ import com.zabo.auth.Role;
 import com.zabo.auth.UserAuthInfo;
 import com.zabo.dao.DAO;
 import com.zabo.dao.DAOFactory;
-import com.zabo.dao.UserAuthInfoDAO;
 import io.vertx.core.json.DecodeException;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.shiro.crypto.RandomNumberGenerator;
 import org.apache.shiro.crypto.SecureRandomNumberGenerator;
-import org.apache.shiro.crypto.hash.Hash;
 import org.apache.shiro.crypto.hash.Sha512Hash;
 import org.apache.shiro.crypto.hash.SimpleHash;
 import org.apache.shiro.util.ByteSource;
@@ -25,6 +22,19 @@ import java.util.List;
 /**
  * Created by zhaoboliu on 4/27/16.
  */
+/**
+ * Test Cases:
+ * . User Account can't login admin page
+ * . Admin can delete user account
+ * . User can't delete admin's account
+ * . Only user/admin can update their own account
+ * . Default admin account is admin@gmail.com
+ * . authentication for admin is required for creating new admin account
+ * . authenticated User can't create admin account
+ * . authentication is not required for creating new user account
+ * . Can't create new account with same existing user_id
+ * . update password
+ **/
 public class AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountService.class);
 
@@ -52,29 +62,12 @@ public class AccountService {
         deleteAccountWithRole(ctx, Role.ADMIN);
     }
 
+    public static void getAllUserAccounts(RoutingContext ctx) { getAllAccountsWithRole(ctx, Role.USER); }
+
+    public static void getAllAdminAccounts(RoutingContext ctx) { getAllAccountsWithRole(ctx, Role.ADMIN); }
 
     private static void createAccountWithRole(RoutingContext ctx, Role role) {
-        if(role == Role.ADMIN) {
-            User user = ctx.user();
-            boolean isAuthenticated = ctx.user() != null;
-            if(!isAuthenticated) {
-                ctx.fail(HttpResponseStatus.UNAUTHORIZED.getCode());
-                return;
-            }
-
-            user.isAuthorised("role:ADMIN", res -> {
-                if(res.succeeded()) {
-                    boolean hasRole = res.result();
-                    if (hasRole){
-                        createAccount(ctx, role);
-                        return;
-                    }
-                }
-                ctx.fail(HttpResponseStatus.UNAUTHORIZED.getCode());
-            });
-        } else {
-            createAccount(ctx, role);
-        }
+        createAccount(ctx, role);
     }
 
     private static void createAccount(RoutingContext ctx, Role role) {
@@ -86,7 +79,7 @@ public class AccountService {
             ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO(role);
+        DAO dao = factory.getUserAuthInfoDAO();
 
         // Check for existing user_id
         if (getUserByID(dao, user_id) != null){
@@ -114,36 +107,42 @@ public class AccountService {
         final String id = ctx.request().getParam("id");
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO(role);
+        DAO dao = factory.getUserAuthInfoDAO();
 
         User ctxUser = ctx.user();
         String contextUser = ctxUser.principal().getString("username");
 
         ctxUser.isAuthorised("role:USER", res -> {
             if(res.succeeded()){
-                UserAuthInfo user_db = getUserByID(dao, contextUser);
-                deleteAccount(ctx, dao, user_db.getId());
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    UserAuthInfo user_db = getUserByID(dao, contextUser);
+                    deleteAccount(ctx, dao, user_db.getId());
+                }
             }
         });
 
         ctxUser.isAuthorised("role:ADMIN", res -> {
             if(res.succeeded()) {
-                String user_id_input = null;
-                try {
-                    user_id_input = ctx.getBodyAsJson().getString("user_id");
-                }catch (DecodeException e) {
-                    //ignore
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    String user_id_input = null;
+                    try {
+                        user_id_input = ctx.getBodyAsJson().getString("user_id");
+                    } catch (DecodeException e) {
+                        //ignore
+                    }
+
+                    UserAuthInfo user_db;
+
+                    // delete own account
+                    if (user_id_input == null || contextUser.equals(user_id_input))
+                        user_db = getUserByID(dao, contextUser);
+                    else
+                        // delete user account
+                        user_db = getUserByID(dao, user_id_input);
+                    deleteAccount(ctx, dao, user_db.getId());
                 }
-
-                UserAuthInfo user_db;
-
-                // delete own account
-                if(user_id_input == null || contextUser.equals(user_id_input))
-                    user_db = getUserByID(dao, contextUser);
-                else
-                // delete user account
-                    user_db = getUserByID(dao, user_id_input);
-                deleteAccount(ctx, dao, user_db.getId());
             }
         });
     }
@@ -166,7 +165,7 @@ public class AccountService {
 //        }
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO(role);
+        DAO dao = factory.getUserAuthInfoDAO();
 
         UserAuthInfo user_db;
         if(id != null)
@@ -221,5 +220,9 @@ public class AccountService {
                 .setStatusCode(200)
                 .putHeader("content-type", "application/text; charset=utf-8")
                 .end("Deleted Account id : " + id);
+    }
+
+    private static void getAllAccountsWithRole(RoutingContext ctx, Role role){
+        ctx.fail(HttpResponseStatus.NOT_IMPLEMENTED.getCode());
     }
 }

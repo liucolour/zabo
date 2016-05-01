@@ -29,7 +29,7 @@ public class PostService {
         categoryClassMap.put("job", JobPost.class);
     }
 
-    public static void addOne(RoutingContext routingContext) {
+    public static void addPost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         if(category == null)
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
@@ -51,7 +51,7 @@ public class PostService {
                 .end(retPost);
     }
 
-    public static void getOne(RoutingContext routingContext) {
+    public static void getPost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
         if(category == null || id == null)
@@ -76,11 +76,11 @@ public class PostService {
             .end(Json.encodePrettily(post));
     }
 
-    public static void updateOne(RoutingContext routingContext) {
+    public static void updatePost(RoutingContext routingContext) {
         routingContext.fail(501);
     }
 
-    public static void deleteOne(RoutingContext routingContext) {
+    public static void deletePost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
 
@@ -100,7 +100,7 @@ public class PostService {
         routingContext.response().setStatusCode(204).end();
     }
 
-    public static void query(RoutingContext routingContext) {
+    public static void queryPosts(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String type = routingContext.request().getParam("type");
 

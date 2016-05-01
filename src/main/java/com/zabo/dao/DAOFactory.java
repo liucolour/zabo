@@ -21,7 +21,7 @@ public abstract class DAOFactory {
 
     public abstract DAO getDAO(Class clazz);
 
-    public abstract UserAuthInfoDAO getUserAuthInfoDAO(Role role);
+    public abstract UserAuthInfoDAO getUserAuthInfoDAO();
 
     public static DAOFactory getDAOFactorybyConfig() {
         String configDBType = System.getProperty("database.default");
