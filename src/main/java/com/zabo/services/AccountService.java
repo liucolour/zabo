@@ -93,7 +93,7 @@ public class AccountService {
         dao.write(user);
 
         ctx.response()
-                .setStatusCode(201)
+                .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
                 .end("Created account for user id : " + user_id + "with role :" + role.toString());
     }
@@ -134,11 +134,11 @@ public class AccountService {
 
                     UserAccount user_db;
 
-                    // delete own account
+                    // get own account
                     if (user_id_input == null || contextUser.equals(user_id_input))
                         user_db = getUserByUserID(dao, contextUser);
                     else
-                        // delete user account
+                        // get other user account
                         user_db = getUserByUserID(dao, user_id_input);
 
                     if(user_db == null) {
@@ -193,7 +193,7 @@ public class AccountService {
         dao.update(user_db.getId(), user_db);
 
         ctx.response()
-                .setStatusCode(200)
+                .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
                 .end("Updated password for user id : " + user_db.getUser_id());
     }
@@ -237,9 +237,75 @@ public class AccountService {
         dao.update(user_db.getId(), user_db);
 
         ctx.response()
-                .setStatusCode(200)
+                .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
                 .end("Updated profile for user id : " + user_db.getUser_id());
+    }
+
+    public static void getAccountProfile(RoutingContext ctx) {
+
+        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
+        DAO dao = factory.getUseAccountDAO();
+
+        User ctxUser = ctx.user();
+        String contextUser = ctxUser.principal().getString("username");
+
+        ctxUser.isAuthorised("role:USER", res -> {
+            if(res.succeeded()){
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    UserAccount user_db = getUserByUserID(dao, contextUser);
+                    if(user_db == null) {
+                        logger.error("Couldn't find user_id " + contextUser);
+                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                        return;
+                    }
+                    returnExtractedAccountInfo(ctx, user_db);
+                }
+            }
+        });
+
+        ctxUser.isAuthorised("role:ADMIN", res -> {
+            if(res.succeeded()) {
+                boolean hasRole = res.result();
+                if(hasRole) {
+                    String user_id_input = null;
+                    try {
+                        user_id_input = ctx.getBodyAsJson().getString("user_id");
+                    } catch (DecodeException e) {
+                        //ignore
+                    }
+
+                    UserAccount user_db;
+
+                    // get own account
+                    if (user_id_input == null || contextUser.equals(user_id_input))
+                        user_db = getUserByUserID(dao, contextUser);
+                    else
+                        // get other user account
+                        user_db = getUserByUserID(dao, user_id_input);
+
+                    if(user_db == null) {
+                        logger.error("Couldn't find user_id " + contextUser);
+                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                        return;
+                    }
+                    returnExtractedAccountInfo(ctx, user_db);
+                }
+            }
+        });
+    }
+
+    private static void returnExtractedAccountInfo(RoutingContext ctx, UserAccount userAccount) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.put("id", userAccount.getId());
+        jsonObject.put("user_id", userAccount.getUser_id());
+        //TODO: json conversion
+        jsonObject.put("profile", new JsonObject(Json.encode(userAccount.getProfile())));
+        ctx.response()
+                .setStatusCode(HttpResponseStatus.OK.getCode())
+                .putHeader("content-type", "application/json; charset=utf-8")
+                .end(jsonObject.encodePrettily());
     }
 
     private static UserAccount getUserByUserID(DAO dao, String user_id) {
@@ -261,7 +327,7 @@ public class AccountService {
         dao.delete(id);
 
         ctx.response()
-                .setStatusCode(200)
+                .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
                 .end("Deleted account of user id : " + id);
     }

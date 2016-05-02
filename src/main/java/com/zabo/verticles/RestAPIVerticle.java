@@ -71,6 +71,9 @@ public class RestAPIVerticle extends AbstractVerticle {
         String loginPage = "/login.html";
         String adminLoginPage = "/adminLogin.html";
 
+        // getAccountProfile, logged in user can only get its own profile, admin can get anyone's profile
+        router.post("/api/accounts/*").handler(RedirectAuthHandler.create(authProvider,loginPage));
+
         // updateAccountPassword and updateAccountProfile, user or admin can only update own password
         router.put("/api/accounts/*").handler(RedirectAuthHandler.create(authProvider,loginPage));
 
@@ -121,16 +124,15 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.delete("/api/user/accounts").handler(AccountService::deleteUserAccount);
         //router.get("/api/user/accounts").handler(AccountService::getAllUserAccounts);
         //TODO: getAccountProfile
-        //router.post("/api/accounts").handler(AccountService::getAccountProfile);
 
         router.post("/api/admin/accounts").handler(AccountService::createAdminAccount);
         router.delete("/api/admin/accounts").handler(AccountService::deleteAdminAccount);
         //router.get("/api/admin/accounts").handler(AccountService::getAllAdminAccounts);
-        //router.get("/api/admin/accounts/:user_id").handler(AccountService::getOneAdminAccount);
 
         router.put("/api/accounts/password").handler(AccountService::updateAccountPassword);
         router.put("/api/accounts/profile").handler(AccountService::updateAccountProfile);
-        //router.post("/api/accounts").handler(AccountService::getAccountProfile);
+
+        router.post("/api/accounts").handler(AccountService::getAccountProfile);
 
         router.route().handler(StaticHandler
                 .create()
