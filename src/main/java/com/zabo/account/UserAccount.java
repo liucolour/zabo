@@ -6,7 +6,7 @@ package com.zabo.account;
 
 public class UserAccount {
     private String id;
-    private String user_id;
+    private String username;
     private String password;
     private Role role;
     private String permission;
@@ -23,20 +23,20 @@ public class UserAccount {
     public UserAccount(){
 
     }
-    public UserAccount(String user_id, String password, Role role, String permission, String hash_algo) {
-        this.user_id = user_id;
+    public UserAccount(String username, String password, Role role, String permission, String hash_algo) {
+        this.username = username;
         this.password = password;
         this.role = role;
         this.permission = permission;
         this.hash_algo = hash_algo;
     }
 
-    public String getUser_id() {
-        return user_id;
+    public String getUsername() {
+        return username;
     }
 
-    public void setUser_id(String user_id) {
-        this.user_id = user_id;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getPassword() {

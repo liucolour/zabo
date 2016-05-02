@@ -106,9 +106,9 @@ public class PostService {
                         routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
                         return;
                     }
-                    // for user, use login user_id
-                    String user_id = routingContext.user().principal().getString("username");
-                    queyPostsByUserId(routingContext, user_id);
+                    // for user, use login username
+                    String username = routingContext.user().principal().getString("username");
+                    queyPostsByUserId(routingContext, username);
                 }
             }
         });
@@ -117,16 +117,16 @@ public class PostService {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    // for admin, use user_id from json body in request
-                    String user_id = routingContext.getBodyAsJson().getString("user_id");
-                    queyPostsByUserId(routingContext, user_id);
+                    // for admin, use username from json body in request
+                    String username = routingContext.getBodyAsJson().getString("username");
+                    queyPostsByUserId(routingContext, username);
                 }
             }
         });
     }
 
-    private static void queyPostsByUserId(RoutingContext routingContext, String user_id){
-        String queryUserStatement = String.format(System.getProperty("query.user.statement"), user_id);
+    private static void queyPostsByUserId(RoutingContext routingContext, String username){
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
         //TODO: support any category
         queryPostsONDAO(routingContext, "job", queryType, queryUserStatement);
     }
@@ -184,7 +184,7 @@ public class PostService {
                         routingContext.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    if(!post.getUser_id().equals(ctxUser.principal().getString("username"))) {
+                    if(!post.getUsername().equals(ctxUser.principal().getString("username"))) {
                         routingContext.fail(HttpResponseStatus.FORBIDDEN.getCode());
                         return;
                     }
@@ -258,7 +258,7 @@ public class PostService {
 
         Post post = (Post) Json.decodeValue(content, clazz);
         User ctxUser = routingContext.user();
-        post.setUser_id(ctxUser.principal().getString("username"));
+        post.setUsername(ctxUser.principal().getString("username"));
 
         long currentTime = System.currentTimeMillis();
         post.setCreated_time(currentTime);
@@ -278,7 +278,7 @@ public class PostService {
         post.setId(id);
 
         User ctxUser = routingContext.user();
-        post.setUser_id(ctxUser.principal().getString("username"));
+        post.setUsername(ctxUser.principal().getString("username"));
 
         long currentTime = System.currentTimeMillis();
         post.setModified_time(currentTime);

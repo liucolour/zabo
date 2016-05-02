@@ -35,7 +35,7 @@ import java.util.List;
  * . authentication for admin is required for creating new admin account
  * . authenticated User can't create admin account
  * . authentication is not required for creating new user account
- * . Can't create new account with same existing user_id
+ * . Can't create new account with same existing username
  * . update password
  **/
 public class AccountService {
@@ -67,17 +67,17 @@ public class AccountService {
 
     private static void createAccount(RoutingContext ctx, Role role) {
         JsonObject json = ctx.getBodyAsJson();
-        String user_id = json.getString("user_id").toLowerCase().trim();
+        String username = json.getString("username").toLowerCase().trim();
         String password = json.getString("password").trim();
 
-        if(user_id == null || password == null)
+        if(username == null || password == null)
             ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
         DAO dao = factory.getUseAccountDAO();
 
-        // Check for existing user_id
-        if (getUserByUserID(dao, user_id) != null){
+        // Check for existing username
+        if (getUserByUserID(dao, username) != null){
             ctx.fail(HttpResponseStatus.CONFLICT.getCode());
             return;
         }
@@ -87,7 +87,7 @@ public class AccountService {
         //TODO: add iteration
         String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
 
-        UserAccount user = new UserAccount(user_id, hashedPasswordBase64, role, null, Sha512Hash.ALGORITHM_NAME);
+        UserAccount user = new UserAccount(username, hashedPasswordBase64, role, null, Sha512Hash.ALGORITHM_NAME);
         user.setSalt(salt.toBase64());
 
         dao.write(user);
@@ -95,7 +95,7 @@ public class AccountService {
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Created account for user id : " + user_id + "with role :" + role.toString());
+                .end("Created account for username : " + username + "with role :" + role.toString());
     }
 
     public static void deleteAccountWithRole(RoutingContext ctx, Role role) {
@@ -112,7 +112,7 @@ public class AccountService {
                 if(hasRole) {
                     UserAccount user_db = getUserByUserID(dao, contextUser);
                     if(user_db == null) {
-                        logger.error("Couldn't find user_id " + contextUser);
+                        logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
@@ -125,9 +125,9 @@ public class AccountService {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    String user_id_input = null;
+                    String username_input = null;
                     try {
-                        user_id_input = ctx.getBodyAsJson().getString("user_id");
+                        username_input = ctx.getBodyAsJson().getString("username");
                     } catch (DecodeException e) {
                         //ignore
                     }
@@ -135,14 +135,14 @@ public class AccountService {
                     UserAccount user_db;
 
                     // get own account
-                    if (user_id_input == null || contextUser.equals(user_id_input))
+                    if (username_input == null || contextUser.equals(username_input))
                         user_db = getUserByUserID(dao, contextUser);
                     else
                         // get other user account
-                        user_db = getUserByUserID(dao, user_id_input);
+                        user_db = getUserByUserID(dao, username_input);
 
                     if(user_db == null) {
-                        logger.error("Couldn't find user_id " + contextUser);
+                        logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
@@ -175,7 +175,7 @@ public class AccountService {
         user_db = getUserByUserID(dao, contextUser);
 
         if(user_db == null) {
-            logger.error("Couldn't find user_id " + contextUser);
+            logger.error("Couldn't find username " + contextUser);
             ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
             return;
         }
@@ -195,7 +195,7 @@ public class AccountService {
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated password for user id : " + user_db.getUser_id());
+                .end("Updated password for username : " + user_db.getUsername());
     }
 
     public static void updateAccountProfile(RoutingContext ctx) {
@@ -226,7 +226,7 @@ public class AccountService {
         UserAccount user_db = getUserByUserID(dao, contextUser);
 
         if(user_db == null) {
-            logger.error("Couldn't find user_id " + contextUser);
+            logger.error("Couldn't find username " + contextUser);
             ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
             return;
         }
@@ -239,7 +239,7 @@ public class AccountService {
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated profile for user id : " + user_db.getUser_id());
+                .end("Updated profile for username : " + user_db.getUsername());
     }
 
     public static void getAccountProfile(RoutingContext ctx) {
@@ -256,7 +256,7 @@ public class AccountService {
                 if(hasRole) {
                     UserAccount user_db = getUserByUserID(dao, contextUser);
                     if(user_db == null) {
-                        logger.error("Couldn't find user_id " + contextUser);
+                        logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
@@ -269,9 +269,9 @@ public class AccountService {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    String user_id_input = null;
+                    String username_input = null;
                     try {
-                        user_id_input = ctx.getBodyAsJson().getString("user_id");
+                        username_input = ctx.getBodyAsJson().getString("username");
                     } catch (DecodeException e) {
                         //ignore
                     }
@@ -279,14 +279,14 @@ public class AccountService {
                     UserAccount user_db;
 
                     // get own account
-                    if (user_id_input == null || contextUser.equals(user_id_input))
+                    if (username_input == null || contextUser.equals(username_input))
                         user_db = getUserByUserID(dao, contextUser);
                     else
                         // get other user account
-                        user_db = getUserByUserID(dao, user_id_input);
+                        user_db = getUserByUserID(dao, username_input);
 
                     if(user_db == null) {
-                        logger.error("Couldn't find user_id " + contextUser);
+                        logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
@@ -299,7 +299,7 @@ public class AccountService {
     private static void returnExtractedAccountInfo(RoutingContext ctx, UserAccount userAccount) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.put("id", userAccount.getId());
-        jsonObject.put("user_id", userAccount.getUser_id());
+        jsonObject.put("username", userAccount.getUsername());
         //TODO: json conversion
         jsonObject.put("profile", new JsonObject(Json.encode(userAccount.getProfile())));
         ctx.response()
@@ -308,14 +308,14 @@ public class AccountService {
                 .end(jsonObject.encodePrettily());
     }
 
-    private static UserAccount getUserByUserID(DAO dao, String user_id) {
-        String queryUserStatement = String.format(System.getProperty("query.user.statement"), user_id);
+    private static UserAccount getUserByUserID(DAO dao, String username) {
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
         List<UserAccount> userAccounts;
         userAccounts = dao.query(queryUserStatement);
         if (userAccounts.size() > 1) {
-            logger.error("Found duplicated user in database with id " + user_id);
-            throw new RuntimeException("Found duplicated user id in database");
+            logger.error("Found duplicated user in database with id " + username);
+            throw new RuntimeException("Found duplicated username in database");
         }
 
         if(userAccounts.size() == 0)
@@ -329,7 +329,7 @@ public class AccountService {
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Deleted account of user id : " + id);
+                .end("Deleted account of username : " + id);
     }
 
 //    private static void getAllAccountsOfRole(RoutingContext ctx, Role role){
