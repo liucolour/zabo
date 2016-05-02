@@ -49,7 +49,7 @@ public class PostService {
         String retPost = null;
         try {
             retPost = processPostCreation(routingContext, category, content);
-            if(retPost==null || retPost.isEmpty()) {
+            if(retPost == null || retPost.isEmpty()) {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
                 return;
             }
@@ -134,7 +134,30 @@ public class PostService {
 
     //TODO: update post
     public static void updatePost(RoutingContext routingContext) {
-        routingContext.fail(501);
+        final String category = routingContext.request().getParam("category");
+        final String id = routingContext.request().getParam("id");
+        if(category == null || id == null) {
+            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
+
+        String content = routingContext.getBodyAsString();
+        String retPost = null;
+        try {
+            retPost = processPostUpdate(routingContext, category, content, id);
+            if(retPost == null || retPost.isEmpty()) {
+                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
+        }catch (Throwable t) {
+            logger.error("Updating post failed ", t);
+            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            return;
+        }
+        routingContext.response()
+                .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                .putHeader("content-type", "application/json; charset=utf-8")
+                .end(retPost);
     }
 
     public static void deletePostWithRole(RoutingContext routingContext) {
@@ -159,7 +182,7 @@ public class PostService {
                     }
                     Post post = (Post)dao.read(id);
                     if(post == null) {
-                        routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                        routingContext.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
                     if(!post.getUser_id().equals(ctxUser.principal().getString("username"))) {
@@ -228,6 +251,7 @@ public class PostService {
                 .putHeader("content-type", "application/json; charset=utf-8")
                 .end(Json.encodePrettily(posts));;
     }
+
     private static String processPostCreation(RoutingContext routingContext,String category, String content) {
         String cleanCategory = category.trim().toLowerCase();
         Class clazz = categoryClassMap.get(cleanCategory);
@@ -243,6 +267,25 @@ public class PostService {
 
         String id = dao.write(post);
         post.setId(id);
+        return Json.encodePrettily(post);
+    }
+
+    private static String processPostUpdate(RoutingContext routingContext,String category, String content, String id) {
+        String cleanCategory = category.trim().toLowerCase();
+        Class clazz = categoryClassMap.get(cleanCategory);
+        DAO dao = getDAO(category);
+
+        Post post = (Post) Json.decodeValue(content, clazz);
+        post.setId(id);
+
+        User ctxUser = routingContext.user();
+        post.setUser_id(ctxUser.principal().getString("username"));
+
+        long currentTime = System.currentTimeMillis();
+        post.setModified_time(currentTime);
+
+        //TODO: may define my Document missing exception
+        dao.update(id, post);
         return Json.encodePrettily(post);
     }
 

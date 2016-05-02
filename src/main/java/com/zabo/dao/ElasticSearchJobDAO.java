@@ -9,6 +9,7 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateResponse;
+import org.elasticsearch.index.engine.DocumentMissingException;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.LinkedList;
@@ -39,7 +40,10 @@ public class ElasticSearchJobDAO implements JobDAO {
         GetResponse response = ElasticSearchDAOFactory.getElasticSearchClient().prepareGet(index, type, recordId)
                 .setOperationThreaded(false)
                 .get();
-        JobPost post = Json.decodeValue(response.getSourceAsString(), JobPost.class);
+        String json = response.getSourceAsString();
+        if(json == null)
+            return null;
+        JobPost post = Json.decodeValue(json, JobPost.class);
         post.setId(response.getId());
         return post;
     }
@@ -67,6 +71,7 @@ public class ElasticSearchJobDAO implements JobDAO {
     @Override
     public void update(String recordId, JobPost record) {
         String json = Json.encodePrettily(record);
+
         ElasticSearchDAOFactory.getElasticSearchClient()
                 .prepareUpdate(index, type, recordId)
                 .setDoc(json)
@@ -75,7 +80,11 @@ public class ElasticSearchJobDAO implements JobDAO {
 
     @Override
     public void delete(String recordId) {
-        ElasticSearchDAOFactory.getElasticSearchClient()
-                .prepareDelete(index, type, recordId).get();
+        try {
+            ElasticSearchDAOFactory.getElasticSearchClient()
+                    .prepareDelete(index, type, recordId).get();
+        } catch (DocumentMissingException e) {
+            // ignore
+        }
     }
 }
