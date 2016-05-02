@@ -1,9 +1,18 @@
 package com.zabo.post;
 
+import java.util.List;
+
 /**
  * Created by zhaoboliu on 3/22/16.
  */
 public class Post {
+
+    private enum Status {
+        Drafted,
+        Posted,
+        Expired,
+    }
+
     private String id;
     private String user_id;
     private long created_time;
@@ -11,7 +20,9 @@ public class Post {
     private String title;
     private String description;
     private Location location;
-    private boolean isProvider; // false is requester
+    private boolean is_provider; // false is requester
+    private Status status;
+    private List<String> image_url_list;
 
     public String getId() {
         return id;
@@ -69,11 +80,27 @@ public class Post {
         this.location = location;
     }
 
-    public boolean getIsProvider() {
-        return isProvider;
+    public Status getStatus() {
+        return status;
     }
 
-    public void setIsProvider(boolean isProvider) {
-        this.isProvider = isProvider;
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public boolean getIs_provider() {
+        return is_provider;
+    }
+
+    public void setIs_provider(boolean is_provider) {
+        this.is_provider = is_provider;
+    }
+
+    public List<String> getImage_url_list() {
+        return image_url_list;
+    }
+
+    public void setImage_url_list(List<String> image_url_list) {
+        this.image_url_list = image_url_list;
     }
 }

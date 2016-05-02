@@ -1,12 +1,10 @@
-package com.zabo.auth;
-
-import com.sun.tools.internal.xjc.reader.xmlschema.bindinfo.BIConversion;
+package com.zabo.account;
 
 /**
  * Created by zhaoboliu on 4/27/16.
  */
 
-public class UserAuthInfo {
+public class UserAccount {
     private String id;
     private String user_id;
     private String password;
@@ -14,12 +12,18 @@ public class UserAuthInfo {
     private String permission;
     private String hash_algo;
     private String salt;
+    //TODO: uncomments those fields
+//    private long created_time;
+//    private boolean is_active;
+//    private boolean is_activated;
+
+    private UserProfile profile;
 
     // for json auto conversion
-    public UserAuthInfo(){
+    public UserAccount(){
 
     }
-    public UserAuthInfo(String user_id, String password, Role role, String permission, String hash_algo) {
+    public UserAccount(String user_id, String password, Role role, String permission, String hash_algo) {
         this.user_id = user_id;
         this.password = password;
         this.role = role;
@@ -81,5 +85,13 @@ public class UserAuthInfo {
 
     public void setSalt(String salt) {
         this.salt = salt;
+    }
+
+    public UserProfile getProfile() {
+        return profile;
+    }
+
+    public void setProfile(UserProfile profile) {
+        this.profile = profile;
     }
 }

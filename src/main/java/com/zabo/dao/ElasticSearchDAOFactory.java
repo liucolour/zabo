@@ -1,9 +1,6 @@
 package com.zabo.dao;
 
-import com.zabo.auth.Role;
-import com.zabo.auth.UserAuthInfo;
 import com.zabo.post.JobPost;
-import com.zabo.utils.Utils;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.elasticsearch.client.Client;
@@ -55,8 +52,8 @@ public class ElasticSearchDAOFactory extends DAOFactory {
     }
 
     @Override
-    public UserAuthInfoDAO getUserAuthInfoDAO() {
-        return new ElasticSearchUserAuthInfoDAO();
+    public UserAccountDAO getUseAccountDAO() {
+        return new ElasticSearchUserAccountDAO();
     }
 
     @Override

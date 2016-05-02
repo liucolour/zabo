@@ -1,10 +1,13 @@
 package com.zabo.services;
 
-import com.zabo.auth.Role;
-import com.zabo.auth.UserAuthInfo;
+import com.zabo.account.Role;
+import com.zabo.account.UserAccount;
+import com.zabo.account.UserProfile;
 import com.zabo.dao.DAO;
 import com.zabo.dao.DAOFactory;
+import io.vertx.core.MultiMap;
 import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
@@ -46,14 +49,6 @@ public class AccountService {
         createAccountWithRole(ctx, Role.ADMIN);
     }
 
-    public static void updateUserAccount(RoutingContext ctx) {
-        updateAccountWithRole(ctx, Role.USER);
-    }
-
-    public static void updateAdminAccount(RoutingContext ctx) {
-        updateAccountWithRole(ctx, Role.ADMIN);
-    }
-
     public static void deleteUserAccount(RoutingContext ctx) {
         deleteAccountWithRole(ctx, Role.USER);
     }
@@ -62,9 +57,9 @@ public class AccountService {
         deleteAccountWithRole(ctx, Role.ADMIN);
     }
 
-    public static void getAllUserAccounts(RoutingContext ctx) { getAllAccountsWithRole(ctx, Role.USER); }
+   // public static void getAllUserAccounts(RoutingContext ctx) { getAllAccountsOfRole(ctx, Role.USER); }
 
-    public static void getAllAdminAccounts(RoutingContext ctx) { getAllAccountsWithRole(ctx, Role.ADMIN); }
+   // public static void getAllAdminAccounts(RoutingContext ctx) { getAllAccountsOfRole(ctx, Role.ADMIN); }
 
     private static void createAccountWithRole(RoutingContext ctx, Role role) {
         createAccount(ctx, role);
@@ -79,10 +74,10 @@ public class AccountService {
             ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO();
+        DAO dao = factory.getUseAccountDAO();
 
         // Check for existing user_id
-        if (getUserByID(dao, user_id) != null){
+        if (getUserByUserID(dao, user_id) != null){
             ctx.fail(HttpResponseStatus.CONFLICT.getCode());
             return;
         }
@@ -92,22 +87,21 @@ public class AccountService {
         //TODO: add iteration
         String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
 
-        UserAuthInfo user = new UserAuthInfo(user_id, hashedPasswordBase64, role, null, Sha512Hash.ALGORITHM_NAME);
+        UserAccount user = new UserAccount(user_id, hashedPasswordBase64, role, null, Sha512Hash.ALGORITHM_NAME);
         user.setSalt(salt.toBase64());
 
-        String id = dao.write(user);
+        dao.write(user);
 
         ctx.response()
                 .setStatusCode(201)
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Created account id : " + id + "with role :" + role.toString());
+                .end("Created account for user id : " + user_id + "with role :" + role.toString());
     }
 
     public static void deleteAccountWithRole(RoutingContext ctx, Role role) {
-        final String id = ctx.request().getParam("id");
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO();
+        DAO dao = factory.getUseAccountDAO();
 
         User ctxUser = ctx.user();
         String contextUser = ctxUser.principal().getString("username");
@@ -116,7 +110,12 @@ public class AccountService {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    UserAuthInfo user_db = getUserByID(dao, contextUser);
+                    UserAccount user_db = getUserByUserID(dao, contextUser);
+                    if(user_db == null) {
+                        logger.error("Couldn't find user_id " + contextUser);
+                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                        return;
+                    }
                     deleteAccount(ctx, dao, user_db.getId());
                 }
             }
@@ -133,84 +132,129 @@ public class AccountService {
                         //ignore
                     }
 
-                    UserAuthInfo user_db;
+                    UserAccount user_db;
 
                     // delete own account
                     if (user_id_input == null || contextUser.equals(user_id_input))
-                        user_db = getUserByID(dao, contextUser);
+                        user_db = getUserByUserID(dao, contextUser);
                     else
                         // delete user account
-                        user_db = getUserByID(dao, user_id_input);
+                        user_db = getUserByUserID(dao, user_id_input);
+
+                    if(user_db == null) {
+                        logger.error("Couldn't find user_id " + contextUser);
+                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                        return;
+                    }
                     deleteAccount(ctx, dao, user_db.getId());
                 }
             }
         });
     }
 
-    public static void updateAccountWithRole(RoutingContext ctx, Role role) {
-        final String id = ctx.request().getParam("id");
-        final String password = ctx.request().formAttributes().get("password");
-        //UserAuthInfo user_input = Json.decodeValue(ctx.getBodyAsString(), UserAuthInfo.class);
+    public static void updateAccountPassword(RoutingContext ctx) {
+        String password = ctx.request().formAttributes().get("password");
 
-//        if(id == null) {
-//            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-//            return;
-//        }
-
+        if(password == null || password.equals("")){
+            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
         // Only current user can update his/her own account
         String contextUser = ctx.user().principal().getString("username");
-//        if(!user_input.getUser_id().equals(contextUser)){
-//            ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
-//            return;
-//        }
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUserAuthInfoDAO();
+        DAO dao = factory.getUseAccountDAO();
 
-        UserAuthInfo user_db;
-        if(id != null)
-            user_db = (UserAuthInfo)dao.read(id);
-        else
-            user_db = getUserByID(dao, contextUser);
-
-        if(password != null) {
-
-            RandomNumberGenerator rng = new SecureRandomNumberGenerator();
-            ByteSource salt = rng.nextBytes();
-
-            //TODO: add iteration
-            String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
-
-            user_db.setPassword(hashedPasswordBase64);
-            user_db.setSalt(salt.toBase64());
-            user_db.setHash_algo(Sha512Hash.ALGORITHM_NAME);
+        if(dao == null) {
+            ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            return;
         }
+
+        UserAccount user_db;
+
+        user_db = getUserByUserID(dao, contextUser);
+
+        if(user_db == null) {
+            logger.error("Couldn't find user_id " + contextUser);
+            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+            return;
+        }
+
+        RandomNumberGenerator rng = new SecureRandomNumberGenerator();
+        ByteSource salt = rng.nextBytes();
+
+        //TODO: add iteration
+        String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
+
+        user_db.setPassword(hashedPasswordBase64);
+        user_db.setSalt(salt.toBase64());
+        user_db.setHash_algo(Sha512Hash.ALGORITHM_NAME);
 
         dao.update(user_db.getId(), user_db);
-
-        if(password != null){
-            logger.info("Account password was changed for id : {}", user_db.getId());
-        }
 
         ctx.response()
                 .setStatusCode(200)
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated Account id : " + user_db.getId());
+                .end("Updated password for user id : " + user_db.getUser_id());
     }
 
-    private static UserAuthInfo getUserByID(DAO dao, String user_id) {
+    public static void updateAccountProfile(RoutingContext ctx) {
+        String content = ctx.getBodyAsString();
+        UserAccount user_input = null;
+        try {
+            user_input = Json.decodeValue(content, UserAccount.class);
+        }catch (DecodeException e){
+            //ignore
+        }
+
+        if(user_input == null){
+            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
+
+        // Only current user can update his/her own account
+        String contextUser = ctx.user().principal().getString("username");
+
+        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
+        DAO dao = factory.getUseAccountDAO();
+
+        if(dao == null) {
+            ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            return;
+        }
+
+        UserAccount user_db = getUserByUserID(dao, contextUser);
+
+        if(user_db == null) {
+            logger.error("Couldn't find user_id " + contextUser);
+            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+            return;
+        }
+
+        if(user_input != null && user_input.getProfile() != null)
+            user_db.setProfile(user_input.getProfile());
+
+        dao.update(user_db.getId(), user_db);
+
+        ctx.response()
+                .setStatusCode(200)
+                .putHeader("content-type", "application/text; charset=utf-8")
+                .end("Updated profile for user id : " + user_db.getUser_id());
+    }
+
+    private static UserAccount getUserByUserID(DAO dao, String user_id) {
         String queryUserStatement = String.format(System.getProperty("query.user.statement"), user_id);
 
-        List<UserAuthInfo> authInfos;
-        authInfos = dao.query(queryUserStatement);
-        if (authInfos.size() > 1) {
+        List<UserAccount> userAccounts;
+        userAccounts = dao.query(queryUserStatement);
+        if (userAccounts.size() > 1) {
             logger.error("Found duplicated user in database with id " + user_id);
             throw new RuntimeException("Found duplicated user id in database");
         }
 
-        if(authInfos.size() == 0)
+        if(userAccounts.size() == 0)
             return null;
-        return authInfos.get(0);
+        return userAccounts.get(0);
     }
 
     private static void deleteAccount(RoutingContext ctx, DAO dao, String id) {
@@ -219,10 +263,20 @@ public class AccountService {
         ctx.response()
                 .setStatusCode(200)
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Deleted Account id : " + id);
+                .end("Deleted account of user id : " + id);
     }
 
-    private static void getAllAccountsWithRole(RoutingContext ctx, Role role){
-        ctx.fail(HttpResponseStatus.NOT_IMPLEMENTED.getCode());
-    }
+//    private static void getAllAccountsOfRole(RoutingContext ctx, Role role){
+//        String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role.toString());
+//
+//        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
+//        DAO dao = factory.getUserAuthInfoDAO();
+//
+//        List<UserAccount> authInfos;
+//        authInfos = dao.query(queryRoleStatement);
+//        ctx.response()
+//                .setStatusCode(HttpResponseStatus.OK.getCode())
+//                .putHeader("content-type", "application/json; charset=utf-8")
+//                .end(Json.encodePrettily(authInfos));
+//    }
 }

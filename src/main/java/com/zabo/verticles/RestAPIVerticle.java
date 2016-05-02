@@ -59,9 +59,9 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.get("/api/posts/category/:category/:id").handler(PostService::getPostById);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/query/posts/:category").handler(PostService::queryPosts);
-        router.post("/api/user/account").handler(AccountService::createUserAccount);
+        router.post("/api/user/accounts").handler(AccountService::createUserAccount);
 
-        // Implement logout
+        // Handle logout
         router.route("/api/logout").handler(context -> {
             context.clearUser();
             // Redirect back to the index page
@@ -71,30 +71,41 @@ public class RestAPIVerticle extends AbstractVerticle {
         String loginPage = "/login.html";
         String adminLoginPage = "/adminLogin.html";
 
-        // Handle authorization for both user and admin in PostService for deletion and getPosts of specific user
+        // updateAccountPassword and updateAccountProfile, user or admin can only update own password
+        router.put("/api/accounts/*").handler(RedirectAuthHandler.create(authProvider,loginPage));
+
+        // queyUserPosts
         router.post("/api/posts/user/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
+        // deletePostWithRole, user can only delete own post, admin can delete anyone's post
         router.delete("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
+        // updatePost
         router.put("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
+
+        // addPost
         router.post("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
 
+        // uploadForm
         router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:USER"));
 
-        // Handle authorization for both user and admin in AccountService for deletion
-        router.delete("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage));
-        router.put("/api/user/account").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:USER"));
+        // deleteAccount, user can only delete own account, admin can delete anyone's account
+        router.delete("/api/user/accounts").handler(RedirectAuthHandler.create(authProvider,loginPage));
+        //router.get("/api/user/accounts").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
 
-        router.delete("/api/admin/account").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
-        router.put("/api/admin/account").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
-        router.post("/api/admin/account").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:ADMIN"));
+        // deleteAdminAccount
+        router.delete("/api/admin/accounts").handler(RedirectAuthHandler.create(authProvider,adminLoginPage).addAuthority("role:ADMIN"));
 
-        router.post("/api/admin/account").handler(AccountService::createAdminAccount);
+        // createAdminAccount, default admin is admin@zabo.com, can only logged in admin can create a new admin account
+        router.post("/api/admin/accounts").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:ADMIN"));
+        //router.get("/api/admin/accounts/*").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:ADMIN"));
 
-        // Handles the user login
+        // Handle the user login
         router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:USER")
                 .setDirectLoggedInOKURL("/index.html")
                 .setReturnURLParam(null));
 
-        // Handles the admin login
+        // Handle the admin login
         router.route("/api/admin/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:ADMIN")
                 .setDirectLoggedInOKURL("/admin.html")
                 .setReturnURLParam(null));
@@ -106,24 +117,20 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.delete("/api/posts/category/:category/:id").handler(PostService::deletePostWithRole);
         router.post("/api/upload/form").handler(PostService::uploadForm);
 
-        router.delete("/api/user/account").handler(AccountService::deleteUserAccount);
-        router.put("/api/user/account").handler(AccountService::updateUserAccount);
-        //TODO: implement get
-//        router.get("/api/user/account").handler(AccountService::getAllUserAccounts);
-//        router.get("/api/user/account/:user_id").handler(AccountService::getOneUserAccount);
+        //TODO: merge user and admin account deletion into one
+        router.delete("/api/user/accounts").handler(AccountService::deleteUserAccount);
+        //router.get("/api/user/accounts").handler(AccountService::getAllUserAccounts);
+        //TODO: getAccountProfile
+        //router.post("/api/accounts").handler(AccountService::getAccountProfile);
 
-        router.delete("/api/admin/account").handler(AccountService::deleteAdminAccount);
-        router.put("/api/admin/account").handler(AccountService::updateAdminAccount);
-        //TODO: implement get
-//        router.get("/api/admin/account").handler(AccountService::getAllAdminAccount);
-//        router.get("/api/admin/account/:user_id").handler(AccountService::getOneAdminAccount);
+        router.post("/api/admin/accounts").handler(AccountService::createAdminAccount);
+        router.delete("/api/admin/accounts").handler(AccountService::deleteAdminAccount);
+        //router.get("/api/admin/accounts").handler(AccountService::getAllAdminAccounts);
+        //router.get("/api/admin/accounts/:user_id").handler(AccountService::getOneAdminAccount);
 
-        //doesn't seem to need this as html tag <img src=> can transfer image directly
-//        router.get("/image/:id").handler(cxt -> {
-//            String id = cxt.request().getParam("id");
-//            //TODO: check file exist
-//            cxt.response().sendFile("image/" + id);
-//        });
+        router.put("/api/accounts/password").handler(AccountService::updateAccountPassword);
+        router.put("/api/accounts/profile").handler(AccountService::updateAccountProfile);
+        //router.post("/api/accounts").handler(AccountService::getAccountProfile);
 
         router.route().handler(StaticHandler
                 .create()

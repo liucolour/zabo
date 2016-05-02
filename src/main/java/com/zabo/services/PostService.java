@@ -1,11 +1,9 @@
 package com.zabo.services;
 
-import com.zabo.auth.UserAuthInfo;
 import com.zabo.dao.DAO;
 import com.zabo.dao.DAOFactory;
 import com.zabo.post.JobPost;
 import com.zabo.post.Post;
-import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -23,6 +21,7 @@ import java.util.Map;
  * Created by zhaoboliu on 3/22/16.
  */
 
+//TODO: introduce post save and submit for view
 //TODO: one more layer before dao like send post to cache
 //TODO: or refactor to make DAO async and use jsonObject to DB directly without POJO post class, referring to
 // https://github.com/vert-x3/vertx-examples/blob/master/web-examples/src/main/java/io/vertx/example/web/angularjs/Server.java
@@ -249,7 +248,7 @@ public class PostService {
         routingContext.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/json; charset=utf-8")
-                .end(Json.encodePrettily(posts));;
+                .end(Json.encodePrettily(posts));
     }
 
     private static String processPostCreation(RoutingContext routingContext,String category, String content) {
@@ -301,6 +300,10 @@ public class PostService {
         Class clazz = categoryClassMap.get(cleanCategory);
         //TODO: throw exception for type not match
         DAOFactory daoFactory = DAOFactory.getDAOFactory(DAOFactory.DBType.valueOf(type));
+        if(daoFactory == null){
+            logger.error("Couldn't find DAO factory");
+            return null;
+        }
         return daoFactory.getDAO(clazz);
     }
 

@@ -1,5 +1,7 @@
 package com.zabo.auth;
 
+import com.zabo.account.Role;
+import com.zabo.account.UserAccount;
 import com.zabo.dao.DAOFactory;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
@@ -42,24 +44,23 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
-        List<UserAuthInfo> authInfos;
+        List<UserAccount> userAccounts;
         try {
-            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO().query(queryUserStatement);
+            userAccounts = DAOFactory.getDAOFactorybyConfig().getUseAccountDAO().query(queryUserStatement);
         }catch (Throwable e) {
             logger.error("Data Access error: ", e);
             throw new AuthenticationException(e);
         }
 
-        if(authInfos == null || authInfos.size() == 0) {
+        if(userAccounts == null || userAccounts.size() == 0) {
             logger.warn("No account found for user " + username);
             throw new UnknownAccountException("No account found for user [" + username + "]");
         }
 
         Set<String> roleNames = new HashSet<>();
-        roleNames.add(authInfos.get(0).getRole().toString());
+        roleNames.add(userAccounts.get(0).getRole().toString());
 
-        SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(roleNames);
-        return info;
+        return new SimpleAuthorizationInfo(roleNames);
     }
 
     @Override
@@ -73,27 +74,26 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
 
         String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
-        List<UserAuthInfo> authInfos;
+        List<UserAccount> userAccounts;
         try {
-            authInfos = DAOFactory.getDAOFactorybyConfig().getUserAuthInfoDAO().query(queryUserStatement);
+            userAccounts = DAOFactory.getDAOFactorybyConfig().getUseAccountDAO().query(queryUserStatement);
         }catch (Throwable e) {
             logger.error("Data Access error: ", e);
             throw new AuthenticationException(e);
         }
 
-        if(authInfos == null || authInfos.size() == 0) {
+        if(userAccounts == null || userAccounts.size() == 0) {
             logger.warn("No account found for user " + username);
             throw new UnknownAccountException("No account found for user [" + username + "]");
         }
 
-        String dbPassword = authInfos.get(0).getPassword();
-        String salt = authInfos.get(0).getSalt();
+        String dbPassword = userAccounts.get(0).getPassword();
+        String salt = userAccounts.get(0).getSalt();
 
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(
+        return new SimpleAuthenticationInfo(
                 username,
                 dbPassword.toCharArray(),
                 ByteSource.Util.bytes(Base64.decode(salt.getBytes())),
                 getName());
-        return info;
     }
 }
