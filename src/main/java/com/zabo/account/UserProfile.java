@@ -6,7 +6,8 @@ package com.zabo.account;
 public class UserProfile {
     private String email;
     private String phone;
-    private String weChat;
+    private String wechat;
+    private String zipcode;
 
     public String getEmail() {
         return email;
@@ -25,10 +26,18 @@ public class UserProfile {
     }
 
     public String getWeChat() {
-        return weChat;
+        return wechat;
     }
 
     public void setWeChat(String weChat) {
-        this.weChat = weChat;
+        this.wechat = weChat;
+    }
+
+    public String getZipcode() {
+        return zipcode;
+    }
+
+    public void setZipcode(String zipcode) {
+        this.zipcode = zipcode;
     }
 }

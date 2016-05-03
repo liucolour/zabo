@@ -15,8 +15,8 @@ import java.util.List;
  */
 public class ElasticSearchUserAccountDAO implements UserAccountDAO {
 
-    public String index = "account_auth_index";
-    public final static String type = "user_auth";
+    public String index = "account_index";
+    public final static String type = "account";
 
     @Override
     public String write(UserAccount record) {

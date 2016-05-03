@@ -12,10 +12,7 @@ public class UserAccount {
     private String permission;
     private String hash_algo;
     private String salt;
-    //TODO: uncomments those fields
-//    private long created_time;
-//    private boolean is_active;
-//    private boolean is_activated;
+    private long created_time;
 
     private UserProfile profile;
 
@@ -93,5 +90,13 @@ public class UserAccount {
 
     public void setProfile(UserProfile profile) {
         this.profile = profile;
+    }
+
+    public long getCreated_time() {
+        return created_time;
+    }
+
+    public void setCreated_time(long created_time) {
+        this.created_time = created_time;
     }
 }

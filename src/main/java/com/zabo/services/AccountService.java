@@ -42,24 +42,12 @@ public class AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountService.class);
 
     public static void createUserAccount(RoutingContext ctx) {
-        createAccountWithRole(ctx, Role.USER);
+        createAccountWithRole(ctx, Role.User);
     }
 
     public static void createAdminAccount(RoutingContext ctx) {
-        createAccountWithRole(ctx, Role.ADMIN);
+        createAccountWithRole(ctx, Role.Admin);
     }
-
-    public static void deleteUserAccount(RoutingContext ctx) {
-        deleteAccountWithRole(ctx, Role.USER);
-    }
-
-    public static void deleteAdminAccount(RoutingContext ctx) {
-        deleteAccountWithRole(ctx, Role.ADMIN);
-    }
-
-   // public static void getAllUserAccounts(RoutingContext ctx) { getAllAccountsOfRole(ctx, Role.USER); }
-
-   // public static void getAllAdminAccounts(RoutingContext ctx) { getAllAccountsOfRole(ctx, Role.ADMIN); }
 
     private static void createAccountWithRole(RoutingContext ctx, Role role) {
         createAccount(ctx, role);
@@ -81,6 +69,7 @@ public class AccountService {
             ctx.fail(HttpResponseStatus.CONFLICT.getCode());
             return;
         }
+
         RandomNumberGenerator rng = new SecureRandomNumberGenerator();
         ByteSource salt = rng.nextBytes();
 
@@ -89,16 +78,17 @@ public class AccountService {
 
         UserAccount user = new UserAccount(username, hashedPasswordBase64, role, null, Sha512Hash.ALGORITHM_NAME);
         user.setSalt(salt.toBase64());
+        user.setCreated_time(System.currentTimeMillis());
 
         dao.write(user);
 
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Created account for username : " + username + "with role :" + role.toString());
+                .end("Created account for username : " + username + " with role : " + role.toString());
     }
 
-    public static void deleteAccountWithRole(RoutingContext ctx, Role role) {
+    public static void deleteAccount(RoutingContext ctx) {
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
         DAO dao = factory.getUseAccountDAO();
@@ -106,7 +96,7 @@ public class AccountService {
         User ctxUser = ctx.user();
         String contextUser = ctxUser.principal().getString("username");
 
-        ctxUser.isAuthorised("role:USER", res -> {
+        ctxUser.isAuthorised("role:User", res -> {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -116,12 +106,14 @@ public class AccountService {
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    deleteAccount(ctx, dao, user_db.getId());
+                    //log out
+                    ctx.clearUser();
+                    deleteAccount(ctx, dao, user_db.getId(), user_db.getUsername());
                 }
             }
         });
 
-        ctxUser.isAuthorised("role:ADMIN", res -> {
+        ctxUser.isAuthorised("role:Admin", res -> {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -135,9 +127,11 @@ public class AccountService {
                     UserAccount user_db;
 
                     // get own account
-                    if (username_input == null || contextUser.equals(username_input))
+                    if (username_input == null || contextUser.equals(username_input)) {
                         user_db = getUserByUserID(dao, contextUser);
-                    else
+                        // log out
+                        ctx.clearUser();
+                    } else
                         // get other user account
                         user_db = getUserByUserID(dao, username_input);
 
@@ -146,7 +140,7 @@ public class AccountService {
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    deleteAccount(ctx, dao, user_db.getId());
+                    deleteAccount(ctx, dao, user_db.getId(), user_db.getUsername());
                 }
             }
         });
@@ -242,7 +236,7 @@ public class AccountService {
                 .end("Updated profile for username : " + user_db.getUsername());
     }
 
-    public static void getAccountProfile(RoutingContext ctx) {
+    public static void getAccount(RoutingContext ctx) {
 
         DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
         DAO dao = factory.getUseAccountDAO();
@@ -250,7 +244,7 @@ public class AccountService {
         User ctxUser = ctx.user();
         String contextUser = ctxUser.principal().getString("username");
 
-        ctxUser.isAuthorised("role:USER", res -> {
+        ctxUser.isAuthorised("role:User", res -> {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -260,12 +254,16 @@ public class AccountService {
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    returnExtractedAccountInfo(ctx, user_db);
+                    removeSensitiveAccountInfo(user_db);
+                    ctx.response()
+                            .setStatusCode(HttpResponseStatus.OK.getCode())
+                            .putHeader("content-type", "application/json; charset=utf-8")
+                            .end(Json.encodePrettily(user_db));
                 }
             }
         });
 
-        ctxUser.isAuthorised("role:ADMIN", res -> {
+        ctxUser.isAuthorised("role:Admin", res -> {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -290,22 +288,25 @@ public class AccountService {
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    returnExtractedAccountInfo(ctx, user_db);
+                    removeSensitiveAccountInfo(user_db);
+                    ctx.response()
+                            .setStatusCode(HttpResponseStatus.OK.getCode())
+                            .putHeader("content-type", "application/json; charset=utf-8")
+                            .end(Json.encodePrettily(user_db));
                 }
             }
         });
     }
 
-    private static void returnExtractedAccountInfo(RoutingContext ctx, UserAccount userAccount) {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.put("id", userAccount.getId());
-        jsonObject.put("username", userAccount.getUsername());
-        //TODO: json conversion
-        jsonObject.put("profile", new JsonObject(Json.encode(userAccount.getProfile())));
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(jsonObject.encodePrettily());
+    private static void removeSensitiveAccountInfo(UserAccount userAccount) {
+//        JsonObject jsonObject = new JsonObject();
+//        jsonObject.put("id", userAccount.getId());
+//        jsonObject.put("username", userAccount.getUsername());
+//        jsonObject.put("profile", new JsonObject(Json.encode(userAccount.getProfile())));
+        userAccount.setPassword("");
+        userAccount.setSalt("");
+        userAccount.setHash_algo("");
+        userAccount.setPermission("");
     }
 
     private static UserAccount getUserByUserID(DAO dao, String username) {
@@ -323,26 +324,33 @@ public class AccountService {
         return userAccounts.get(0);
     }
 
-    private static void deleteAccount(RoutingContext ctx, DAO dao, String id) {
+    private static void deleteAccount(RoutingContext ctx, DAO dao, String id, String username) {
         dao.delete(id);
-
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Deleted account of username : " + id);
+                .end("Deleted account of username : " + username);
     }
 
-//    private static void getAllAccountsOfRole(RoutingContext ctx, Role role){
-//        String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role.toString());
-//
-//        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-//        DAO dao = factory.getUserAuthInfoDAO();
-//
-//        List<UserAccount> authInfos;
-//        authInfos = dao.query(queryRoleStatement);
-//        ctx.response()
-//                .setStatusCode(HttpResponseStatus.OK.getCode())
-//                .putHeader("content-type", "application/json; charset=utf-8")
-//                .end(Json.encodePrettily(authInfos));
-//    }
+    public static void getAllAccountsByRole(RoutingContext ctx){
+        String role = ctx.request().getParam("role");
+        if(role == null){
+            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+            return;
+        }
+
+        String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role);
+
+        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
+        DAO dao = factory.getUseAccountDAO();
+
+        List<UserAccount> UserAccounts;
+        UserAccounts = dao.query(queryRoleStatement);
+        UserAccounts.stream().forEach(AccountService::removeSensitiveAccountInfo);
+
+        ctx.response()
+                .setStatusCode(HttpResponseStatus.OK.getCode())
+                .putHeader("content-type", "application/json; charset=utf-8")
+                .end(Json.encodePrettily(UserAccounts));
+    }
 }

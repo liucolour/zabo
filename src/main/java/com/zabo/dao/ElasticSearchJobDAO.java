@@ -72,7 +72,7 @@ public class ElasticSearchJobDAO implements JobDAO {
     public void update(String recordId, JobPost record) {
         String json = Json.encodePrettily(record);
 
-        ElasticSearchDAOFactory.getElasticSearchClient()
+        UpdateResponse response = ElasticSearchDAOFactory.getElasticSearchClient()
                 .prepareUpdate(index, type, recordId)
                 .setDoc(json)
                 .get();

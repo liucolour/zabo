@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * Created by zhaoboliu on 3/22/16.
  */
-
+//TODO: listPostedPost and listDraftedPostForUser
 //TODO: introduce post save and submit for view
 //TODO: one more layer before dao like send post to cache
 //TODO: or refactor to make DAO async and use jsonObject to DB directly without POJO post class, referring to
@@ -63,40 +63,42 @@ public class PostService {
                 .end(retPost);
     }
 
-    public static void getPostById(RoutingContext routingContext) {
+    public static void getPost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
+        Post post = getPostById(category, id);
+        if(post == null)
+            routingContext.fail(HttpResponseStatus.NOT_FOUND.getCode());
+        routingContext.response()
+                .setStatusCode(HttpResponseStatus.OK.getCode())
+                .putHeader("content-type", "application/json; charset=utf-8")
+                .end(Json.encodePrettily(post));
+    }
+
+    private static Post getPostById(final String category, final String id) {
+
         if(category == null || id == null) {
-            routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-            return;
+            throw new RuntimeException("Bad Request");
         }
 
         Post post = null;
         try {
             DAO dao = getDAO(category);
             if(dao == null) {
-                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-                return;
+                throw new RuntimeException("Internal Server Error");
             }
+
             post = (Post) dao.read(id);
-            if(post == null) {
-                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-                return;
-            }
         }catch (Throwable t) {
             logger.error("Getting post failed ", t);
-            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-            return;
+            throw new RuntimeException("Internal Server Error");
         }
-        routingContext.response()
-            .setStatusCode(HttpResponseStatus.OK.getCode())
-            .putHeader("content-type", "application/json; charset=utf-8")
-            .end(Json.encodePrettily(post));
+        return post;
     }
 
     public static void queyUserPosts(RoutingContext routingContext) {
         User ctxUser = routingContext.user();
-        ctxUser.isAuthorised("role:USER", res -> {
+        ctxUser.isAuthorised("role:User", res -> {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -113,7 +115,7 @@ public class PostService {
             }
         });
 
-        ctxUser.isAuthorised("role:ADMIN", res -> {
+        ctxUser.isAuthorised("role:Admin", res -> {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
@@ -131,32 +133,38 @@ public class PostService {
         queryPostsONDAO(routingContext, "job", queryType, queryUserStatement);
     }
 
-    //TODO: update post
     public static void updatePost(RoutingContext routingContext) {
         final String category = routingContext.request().getParam("category");
         final String id = routingContext.request().getParam("id");
+
         if(category == null || id == null) {
             routingContext.fail(HttpResponseStatus.BAD_REQUEST.getCode());
             return;
         }
 
-        String content = routingContext.getBodyAsString();
-        String retPost = null;
-        try {
-            retPost = processPostUpdate(routingContext, category, content, id);
-            if(retPost == null || retPost.isEmpty()) {
-                routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-                return;
-            }
-        }catch (Throwable t) {
-            logger.error("Updating post failed ", t);
-            routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+        User ctxUser = routingContext.user();
+        Post post_db = getPostById(category, id);
+        if(post_db == null)
+            routingContext.fail(HttpResponseStatus.NOT_FOUND.getCode());
+
+        if (!post_db.getUsername().equals(ctxUser.principal().getString("username"))) {
+            routingContext.fail(HttpResponseStatus.FORBIDDEN.getCode());
             return;
         }
+
+        Post post_input = (Post)Json.decodeValue(routingContext.getBodyAsString(), categoryClassMap.get(category));
+        post_input.setModified_time(System.currentTimeMillis());
+        post_input.setCreated_time(post_db.getCreated_time());
+        post_input.setUsername(post_db.getUsername());
+        post_input.setIs_provider(post_db.getIs_provider());
+
+        DAO dao = getDAO(category);
+        dao.update(id, post_input);
+
         routingContext.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(retPost);
+                .putHeader("content-type", "application/text; charset=utf-8")
+                .end("Updated post id" + id);
     }
 
     public static void deletePostWithRole(RoutingContext routingContext) {
@@ -169,22 +177,16 @@ public class PostService {
         }
 
         User ctxUser = routingContext.user();
-        ctxUser.isAuthorised("role:USER", res -> {
+        ctxUser.isAuthorised("role:User", res -> {
             //User can only delete post created by him/her
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    DAO dao = getDAO(category);
-                    if(dao == null) {
-                        routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-                        return;
-                    }
-                    Post post = (Post)dao.read(id);
-                    if(post == null) {
+                    Post post_db = getPostById(category, id);
+                    if(post_db == null)
                         routingContext.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
-                    }
-                    if(!post.getUsername().equals(ctxUser.principal().getString("username"))) {
+
+                    if(!post_db.getUsername().equals(ctxUser.principal().getString("username"))) {
                         routingContext.fail(HttpResponseStatus.FORBIDDEN.getCode());
                         return;
                     }
@@ -193,7 +195,7 @@ public class PostService {
             }
         });
 
-        ctxUser.isAuthorised("role:ADMIN", res -> {
+        ctxUser.isAuthorised("role:Admin", res -> {
             //Admin can delete anyone's post
             if(res.succeeded()) {
                 boolean hasRole = res.result();
@@ -266,25 +268,6 @@ public class PostService {
 
         String id = dao.write(post);
         post.setId(id);
-        return Json.encodePrettily(post);
-    }
-
-    private static String processPostUpdate(RoutingContext routingContext,String category, String content, String id) {
-        String cleanCategory = category.trim().toLowerCase();
-        Class clazz = categoryClassMap.get(cleanCategory);
-        DAO dao = getDAO(category);
-
-        Post post = (Post) Json.decodeValue(content, clazz);
-        post.setId(id);
-
-        User ctxUser = routingContext.user();
-        post.setUsername(ctxUser.principal().getString("username"));
-
-        long currentTime = System.currentTimeMillis();
-        post.setModified_time(currentTime);
-
-        //TODO: may define my Document missing exception
-        dao.update(id, post);
         return Json.encodePrettily(post);
     }
 

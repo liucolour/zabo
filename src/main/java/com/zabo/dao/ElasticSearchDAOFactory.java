@@ -39,6 +39,7 @@ public class ElasticSearchDAOFactory extends DAOFactory {
             client.close();
         }
     }
+
     public static Client getElasticSearchClient() {
         if (client == null)
             init();

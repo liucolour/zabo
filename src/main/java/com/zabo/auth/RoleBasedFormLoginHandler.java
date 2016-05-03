@@ -40,7 +40,7 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
     private String passwordParam = DEFAULT_PASSWORD_PARAM;
     private String returnURLParam = DEFAULT_RETURN_URL_PARAM;
     private String directLoggedInOKURL;
-    private String requiredRole; //shiro role format: role:admin
+    private String requiredRole; //shiro role format: role:Admin
 
     public RoleBasedFormLoginHandler(AuthProvider authProvider, String role) {
         this.authProvider = authProvider;
