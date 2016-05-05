@@ -4,6 +4,7 @@ import com.zabo.auth.DBShiroAuthorizingRealm;
 import com.zabo.auth.RoleBasedFormLoginHandler;
 import com.zabo.services.AccountService;
 import com.zabo.services.PostService;
+import com.zabo.services.PostService2;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -59,7 +60,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.route().handler(UserSessionHandler.create(authProvider));
 
         // public API without authentication required
-        router.get("/api/posts/category/:category/:id").handler(PostService::getPost);
+        router.get("/api/posts/category/:category/:id").handler(PostService2::getPost);
         router.get("/api/upload/ui").handler(PostService::getUploadUI);
         router.post("/api/query/posts/:category").handler(PostService::queryPosts);
         router.post("/api/user/accounts").handler(AccountService::createUserAccount);
@@ -116,7 +117,7 @@ public class RestAPIVerticle extends AbstractVerticle {
 
         // public API with authentication required
         router.post("/api/posts/user").handler(PostService::queyUserPosts);
-        router.post("/api/posts/category/:category").handler(PostService::addPost);
+        router.post("/api/posts/category/:category").handler(PostService2::addPost);
         router.put("/api/posts/category/:category/:id").handler(PostService::updatePost);
         router.delete("/api/posts/category/:category/:id").handler(PostService::deletePostWithRole);
         router.post("/api/upload/form").handler(PostService::uploadForm);

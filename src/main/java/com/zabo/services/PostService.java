@@ -33,6 +33,7 @@ public class PostService {
     private static final Map<String, Class> categoryClassMap = new HashMap<>();
 
 
+    // TODO: use reflection
     static {
         categoryClassMap.put("job", JobPost.class);
     }
@@ -52,7 +53,7 @@ public class PostService {
                 routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
                 return;
             }
-        }catch (Throwable t) {
+        } catch (Throwable t) {
             logger.error("Adding post failed ", t);
             routingContext.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             return;

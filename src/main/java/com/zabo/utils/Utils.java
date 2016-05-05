@@ -54,4 +54,10 @@ public class Utils {
         }
         return new String(digits);
     }
+
+    public static boolean ifStringEmpty(String input){
+        if(input == null || input.isEmpty())
+            return true;
+        return false;
+    }
 }
