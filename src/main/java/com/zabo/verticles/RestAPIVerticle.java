@@ -23,6 +23,7 @@ import java.io.File;
 /**
  * Created by zhaoboliu on 4/3/16.
  */
+//TODO: use system property for "role:Admin" "role:User"
 public class RestAPIVerticle extends AbstractVerticle {
     private final Logger logger = LoggerFactory.getLogger(RestAPIVerticle.class.getName());
 
@@ -41,6 +42,8 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create().setUploadsDirectory(
                 System.getProperty("basedir") + "/" + System.getProperty("image.dir")));
+
+        //TODO: change to clustered session
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
 
         AuthorizingRealm userRealm = new DBShiroAuthorizingRealm();

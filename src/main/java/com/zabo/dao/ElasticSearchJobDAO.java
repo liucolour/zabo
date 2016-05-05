@@ -18,6 +18,7 @@ import java.util.List;
 /**
  * Created by zhaoboliu on 3/30/16.
  */
+//TODO: refactor to only have postDAO for all post' types
 public class ElasticSearchJobDAO implements JobDAO {
     public final static String index = "post_index";
     public final static String type = "job";

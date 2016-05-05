@@ -17,6 +17,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by zhaoboliu on 2/15/16.
  */
+//TODO: Admin aggregation
+//TODO: Geo location search within range of miles of zipcode
+//TODO: Pagination
+//TODO: Image cropping
+//TODO: Anonymous email
+//TODO: HTTPS
+//TODO: Daemon application
+
 public class Main {
     public static void main(String[] args) {
         System.setProperty(LoggerFactory.LOGGER_DELEGATE_FACTORY_CLASS_NAME, SLF4JLogDelegateFactory.class.getName());
