@@ -56,7 +56,13 @@ public class Utils {
     }
 
     public static boolean ifStringEmpty(String input){
-        if(input == null || input.isEmpty())
+        if(input == null || input.equals(""))
+            return true;
+        return false;
+    }
+
+    public static boolean ifTowStringsEmpty(String input1, String input2){
+        if(ifStringEmpty(input2) && ifStringEmpty(input2))
             return true;
         return false;
     }

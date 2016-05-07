@@ -24,6 +24,9 @@ import java.util.concurrent.TimeUnit;
 //TODO: Anonymous email
 //TODO: HTTPS
 //TODO: Daemon application
+//TODO: Exception
+//TODO: unit tests
+//TODO: spring
 
 public class Main {
     public static void main(String[] args) {

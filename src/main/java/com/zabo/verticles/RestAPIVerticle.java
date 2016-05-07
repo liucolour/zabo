@@ -2,9 +2,9 @@ package com.zabo.verticles;
 
 import com.zabo.auth.DBShiroAuthorizingRealm;
 import com.zabo.auth.RoleBasedFormLoginHandler;
+import com.zabo.dao.ElasticSearchInterfaceImpl;
 import com.zabo.services.AccountService;
 import com.zabo.services.PostService;
-import com.zabo.services.PostService2;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -59,10 +59,12 @@ public class RestAPIVerticle extends AbstractVerticle {
         // We need a user session handler too to make sure the user is stored in the session between requests
         router.route().handler(UserSessionHandler.create(authProvider));
 
+        PostService postService = new PostService(new ElasticSearchInterfaceImpl());
+
         // public API without authentication required
-        router.get("/api/posts/category/:category/:id").handler(PostService2::getPost);
-        router.get("/api/upload/ui").handler(PostService::getUploadUI);
-        router.post("/api/query/posts/:category").handler(PostService::queryPosts);
+        router.get("/api/posts/category/:category/:id").handler(postService::getPost);
+        router.get("/api/upload/ui").handler(postService::getUploadUI);
+        router.post("/api/posts/query/:category").handler(postService::queryPosts);
         router.post("/api/user/accounts").handler(AccountService::createUserAccount);
 
         // Handle logout
@@ -90,7 +92,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         // queyUserPosts
         router.post("/api/posts/user/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
 
-        // deletePostWithRole, user can only delete own post, admin can delete anyone's post
+        // deletePost, user can only delete own post, admin can delete anyone's post
         router.delete("/api/posts/category/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
 
         // updatePost
@@ -116,11 +118,11 @@ public class RestAPIVerticle extends AbstractVerticle {
                 .setReturnURLParam(null));
 
         // public API with authentication required
-        router.post("/api/posts/user").handler(PostService::queyUserPosts);
-        router.post("/api/posts/category/:category").handler(PostService2::addPost);
-        router.put("/api/posts/category/:category/:id").handler(PostService::updatePost);
-        router.delete("/api/posts/category/:category/:id").handler(PostService::deletePostWithRole);
-        router.post("/api/upload/form").handler(PostService::uploadForm);
+        router.post("/api/posts/user").handler(postService::queyUserPosts);
+        router.post("/api/posts/category/:category").handler(postService::addPost);
+        router.put("/api/posts/category/:category/:id").handler(postService::updatePost);
+        router.delete("/api/posts/category/:category/:id").handler(postService::deletePost);
+        router.post("/api/upload/form").handler(postService::uploadForm);
 
         router.delete("/api/accounts").handler(AccountService::deleteAccount);
         router.post("/api/accounts").handler(AccountService::getAccount);
