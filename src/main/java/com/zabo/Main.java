@@ -5,6 +5,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.logging.SLF4JLogDelegateFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -39,6 +40,11 @@ public class Main {
             logger.error(ex);
             return;
         }
+
+        // either already specified from script using option -Dbasedir or take current absolute path running from IDE
+        System.setProperty("basedir", System.getProperty("basedir", new File(".").getAbsolutePath()));
+
+        logger.debug("Base dir is {}", System.getProperty("basedir"));
 
         Vertx vertx = Vertx.vertx();
         vertx.deployVerticle("com.zabo.verticles.RestAPIVerticle");

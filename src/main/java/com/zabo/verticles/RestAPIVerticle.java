@@ -30,10 +30,6 @@ public class RestAPIVerticle extends AbstractVerticle {
 
     @Override
     public void start(Future<Void> fut) {
-        // either already specified from script using option -Dbasedir or take current absolute path running from IDE
-        System.setProperty("basedir", System.getProperty("basedir", new File(".").getAbsolutePath()));
-
-        logger.debug("Base dir is {}", System.getProperty("basedir"));
 
         Router router = Router.router(vertx);
 

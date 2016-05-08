@@ -1,5 +1,7 @@
 package com.zabo.dao;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.CharStreams;
 import com.zabo.utils.Utils;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -14,8 +16,12 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.index.engine.DocumentMissingException;
+import org.elasticsearch.indices.IndexAlreadyExistsException;
 import org.elasticsearch.search.sort.SortOrder;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -23,14 +29,12 @@ import java.util.List;
 /**
  * Created by zhaoboliu on 3/30/16.
  */
-//TODO: refactor to only have postDAO for all post' types
 public class ElasticSearchInterfaceImpl implements DBInterface{
     private static final Logger logger = LoggerFactory.getLogger(ElasticSearchInterfaceImpl.class.getName());
 
     private static Client client = null;
 
     static{
-        //TODO: add mapping
         String server = System.getProperty("es.host");
         String clusterName = System.getProperty("es.cluster.name");
         Settings settings = Settings.settingsBuilder().put("cluster.name", clusterName).build();
@@ -38,6 +42,38 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
             client = TransportClient.builder().settings(settings).build()
                     .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(server), 9300));
             logger.info("ElasticSearch Transport client initialized, server={} cluster name={}", server, clusterName);
+
+            // Create index and mapping
+            for(ESDataType type: ESDataType.values()) {
+                if(!type.getType().equals("")) {
+                    String file_name = type.getIndex() + "_" + type.getType() + "_" + "mapping.json";
+                    try(InputStream input = ElasticSearchInterfaceImpl.class
+                            .getClassLoader()
+                            .getResourceAsStream(file_name)) {
+                        if(input == null)
+                            continue;
+                        String mapping = CharStreams.toString(new InputStreamReader(input, Charsets.UTF_8));
+                        try {
+                            client.admin().indices()
+                                    .prepareCreate(type.getIndex())
+                                    .addMapping(type.getType(), mapping)
+                                    .execute()
+                                    .actionGet();
+                            logger.info("ElasticSearch created index={} type={} with mapping at file {}",
+                                    type.getIndex(),
+                                    type.getType(),
+                                    file_name);
+                        }catch (IndexAlreadyExistsException e){
+                            logger.info("ElasticSearch already had index={} type={} with mapping at file {}",
+                                    type.getIndex(),
+                                    type.getType(),
+                                    file_name);
+                        }
+                    }catch (IOException ex) {
+                        logger.error("Failed to read file " + file_name, ex);
+                    }
+                }
+            }
         } catch (UnknownHostException e) {
             logger.error("Initializing elastic search client failed ", e);
             client.close();
@@ -157,7 +193,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         if(!Utils.ifStringEmpty(field))
             queryBuilder.addSort(field, SortOrder.DESC);
 
-        //TODO: add aggreation support
+        //TODO: add aggregation support
         SearchResponse response = queryBuilder.execute().actionGet();
 
         JsonArray list = new JsonArray();
