@@ -16,16 +16,16 @@ import java.util.concurrent.TimeUnit;
  * Created by zhaoboliu on 2/15/16.
  */
 //TODO: Admin aggregation
+//TODO: Integration tests (vertx http client + Junit)
 //TODO: post auto deletion
 //TODO: Geo location search within range of miles of zipcode
-//TODO: Pagination
 //TODO: Image cropping
 //TODO: Anonymous email
 //TODO: HTTPS
 //TODO: Daemon application
 //TODO: Exception
-//TODO: Integration tests
 //TODO: spring
+//TODO: super admin?
 
 public class Main {
     public static void main(String[] args) {

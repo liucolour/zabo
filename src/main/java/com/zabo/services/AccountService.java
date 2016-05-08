@@ -21,7 +21,6 @@ import org.apache.shiro.util.ByteSource;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Created by zhaoboliu on 4/27/16.
@@ -160,7 +159,7 @@ public class AccountService {
             if(res.succeeded()) {
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    String username_input = null;
+                    String username_input = contextUser;
                     try {
                         username_input = ctx.getBodyAsJson().getString("username");
                     } catch (DecodeException e) {
@@ -170,16 +169,17 @@ public class AccountService {
                     JsonObject user_db;
 
                     // get own account
-                    if (username_input == null || contextUser.equals(username_input)) {
+                    if (contextUser.equals(username_input)) {
                         user_db = getUserAccountFromDB(contextUser);
                         // log out
                         ctx.clearUser();
-                    } else
+                    } else {
                         // get other user account
                         user_db = getUserAccountFromDB(username_input);
+                    }
 
                     if(user_db == null) {
-                        logger.error("Couldn't find username " + contextUser);
+                        logger.error("Couldn't find username " + username_input);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
