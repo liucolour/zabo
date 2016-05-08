@@ -80,8 +80,8 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
         }
 
         MultiMap params = req.formAttributes();
-        String username = params.get(usernameParam).toLowerCase().trim();
-        String password = params.get(passwordParam).trim();
+        String username = params.get(usernameParam);
+        String password = params.get(passwordParam);
 
         if (username == null || password == null) {
             logger.warn("No username or password provided in form - did you forget to include a BodyHandler?");

@@ -1,9 +1,6 @@
 package com.zabo;
 
-import com.zabo.dao.ElasticSearchDAOFactory;
 import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
-import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.logging.SLF4JLogDelegateFactory;
@@ -25,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 //TODO: HTTPS
 //TODO: Daemon application
 //TODO: Exception
-//TODO: unit tests
+//TODO: Integration tests
 //TODO: spring
 
 public class Main {

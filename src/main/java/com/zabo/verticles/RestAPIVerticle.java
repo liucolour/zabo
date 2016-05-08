@@ -47,7 +47,11 @@ public class RestAPIVerticle extends AbstractVerticle {
         //TODO: change to clustered session
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
 
-        AuthorizingRealm userRealm = new DBShiroAuthorizingRealm();
+
+        PostService postService = new PostService(new ElasticSearchInterfaceImpl());
+        AccountService accountService = new AccountService(new ElasticSearchInterfaceImpl());
+
+        AuthorizingRealm userRealm = new DBShiroAuthorizingRealm(accountService);
         HashedCredentialsMatcher credentialsMatcher = new HashedCredentialsMatcher();
         credentialsMatcher.setHashAlgorithmName(Sha512Hash.ALGORITHM_NAME);
         credentialsMatcher.setStoredCredentialsHexEncoded(false);
@@ -59,13 +63,11 @@ public class RestAPIVerticle extends AbstractVerticle {
         // We need a user session handler too to make sure the user is stored in the session between requests
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        PostService postService = new PostService(new ElasticSearchInterfaceImpl());
-
         // public API without authentication required
         router.get("/api/posts/category/:category/:id").handler(postService::getPost);
         router.get("/api/upload/ui").handler(postService::getUploadUI);
         router.post("/api/posts/query/:category").handler(postService::queryPosts);
-        router.post("/api/user/accounts").handler(AccountService::createUserAccount);
+        router.post("/api/user/accounts").handler(accountService::createUserAccount);
 
         // Handle logout
         router.route("/api/logout").handler(context -> {
@@ -124,13 +126,13 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.delete("/api/posts/category/:category/:id").handler(postService::deletePost);
         router.post("/api/upload/form").handler(postService::uploadForm);
 
-        router.delete("/api/accounts").handler(AccountService::deleteAccount);
-        router.post("/api/accounts").handler(AccountService::getAccount);
-        router.put("/api/accounts/password").handler(AccountService::updateAccountPassword);
-        router.put("/api/accounts/profile").handler(AccountService::updateAccountProfile);
-        router.get("/api/accounts/:role").handler(AccountService::getAllAccountsByRole);
+        router.delete("/api/accounts").handler(accountService::deleteAccount);
+        router.post("/api/accounts").handler(accountService::getAccount);
+        router.put("/api/accounts/password").handler(accountService::updateAccountPassword);
+        router.put("/api/accounts/profile").handler(accountService::updateAccountProfile);
+        router.get("/api/accounts/:role").handler(accountService::getAllAccountsByRole);
 
-        router.post("/api/admin/accounts").handler(AccountService::createAdminAccount);
+        router.post("/api/admin/accounts").handler(accountService::createAdminAccount);
 
         router.route().handler(StaticHandler
                 .create()

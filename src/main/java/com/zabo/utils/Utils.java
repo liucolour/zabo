@@ -13,27 +13,6 @@ import java.util.Random;
  */
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class.getName());
-    public static String getProperty(String key){
-        Properties prop = new Properties();
-        InputStream input;
-
-        try {
-            String filename = "config.properties";
-            input = Utils.class.getClassLoader().getResourceAsStream(filename);
-            if(input == null){
-                logger.error("Unable to find {}", filename);
-                return null;
-            }
-
-            //load a properties file from class path, inside static method
-            prop.load(input);
-
-            return prop.getProperty(key);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            return null;
-        }
-    }
 
     public static Integer getPropertyInt(String key) {
         String val = System.getProperty(key);
@@ -57,12 +36,6 @@ public class Utils {
 
     public static boolean ifStringEmpty(String input){
         if(input == null || input.equals(""))
-            return true;
-        return false;
-    }
-
-    public static boolean ifTowStringsEmpty(String input1, String input2){
-        if(ifStringEmpty(input2) && ifStringEmpty(input2))
             return true;
         return false;
     }

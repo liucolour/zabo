@@ -2,7 +2,13 @@ package com.zabo.auth;
 
 import com.zabo.account.Role;
 import com.zabo.account.UserAccount;
-import com.zabo.dao.DAOFactory;
+import com.zabo.dao.DBInterface;
+import com.zabo.dao.ESDataType;
+import com.zabo.dao.ElasticSearchInterfaceImpl;
+import com.zabo.services.AccountService;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
@@ -24,9 +30,9 @@ import java.util.Set;
 public class DBShiroAuthorizingRealm extends AuthorizingRealm {
     private static final Logger logger = LoggerFactory.getLogger(DBShiroAuthorizingRealm.class);
 
-    private Role role;
-    public DBShiroAuthorizingRealm(){
-        this.role = null;
+    private AccountService accountService;
+    public DBShiroAuthorizingRealm(AccountService accountService){
+        this.accountService = accountService;
     }
 
     @Override
@@ -42,23 +48,13 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
-
-        List<UserAccount> userAccounts;
-        try {
-            userAccounts = DAOFactory.getDAOFactorybyConfig().getUseAccountDAO().query(queryUserStatement);
-        }catch (Throwable e) {
-            logger.error("Data Access error: ", e);
-            throw new AuthenticationException(e);
-        }
-
-        if(userAccounts == null || userAccounts.size() == 0) {
-            logger.warn("No account found for user " + username);
-            throw new UnknownAccountException("No account found for user [" + username + "]");
-        }
+        UserAccount account = accountService.getUserAccountFromDB(username);
+        if(account == null)
+            throw new UnknownAccountException("No account found for user " + username);
 
         Set<String> roleNames = new HashSet<>();
-        roleNames.add(userAccounts.get(0).getRole().toString());
+
+        roleNames.add(account.getRole().toString());
 
         return new SimpleAuthorizationInfo(roleNames);
     }
@@ -72,23 +68,12 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
+        UserAccount account = accountService.getUserAccountFromDB(username);
+        if(account == null)
+            throw new UnknownAccountException("No account found for user " + username);
 
-        List<UserAccount> userAccounts;
-        try {
-            userAccounts = DAOFactory.getDAOFactorybyConfig().getUseAccountDAO().query(queryUserStatement);
-        }catch (Throwable e) {
-            logger.error("Data Access error: ", e);
-            throw new AuthenticationException(e);
-        }
-
-        if(userAccounts == null || userAccounts.size() == 0) {
-            logger.warn("No account found for user " + username);
-            throw new UnknownAccountException("No account found for user [" + username + "]");
-        }
-
-        String dbPassword = userAccounts.get(0).getPassword();
-        String salt = userAccounts.get(0).getSalt();
+        String dbPassword = account.getPassword();
+        String salt = account.getSalt();
 
         return new SimpleAuthenticationInfo(
                 username,

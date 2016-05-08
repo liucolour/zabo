@@ -3,6 +3,7 @@ package com.zabo.services;
 import com.zabo.dao.DBInterface;
 import com.zabo.dao.ESDataType;
 import com.zabo.utils.Utils;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -16,11 +17,12 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 /**
  * Created by zhaoboliu on 3/22/16.
  */
-
+//TODO: listPostedPost and listDraftedPostForUser
+//TODO: introduce post save and submit for view
+//TODO: one more layer before dao like send post to cache
+//TODO: use vertx.executionBlock to make async call, refer to ShiroAuthProviderImpl
 public class PostService {
     private static final Logger logger = LoggerFactory.getLogger(PostService.class.getName());
-
-    private static final String queryType = System.getProperty("query.type");
 
     private DBInterface dbInterface;
 
@@ -65,19 +67,20 @@ public class PostService {
     }
 
     public void addPost(RoutingContext ctx) {
-        JsonObject jsonObject = convertRequestInJsonObject(ctx);
-        if(jsonObject == null) {
+        Vertx vertx = ctx.vertx();
+        JsonObject json_input = convertRequestInJsonObject(ctx);
+        if(json_input == null) {
             return;
         }
         User ctxUser = ctx.user();
         String username = ctxUser.principal().getString("username");
 
-        jsonObject.put("username",username);
+        json_input.put("username",username);
         long timestamp = System.currentTimeMillis();
-        jsonObject.put("created_time", timestamp);
-        jsonObject.put("modified_time", timestamp);
+        json_input.put("created_time", timestamp);
+        json_input.put("modified_time", timestamp);
 
-        JsonObject result = dbInterface.write(jsonObject);
+        JsonObject result = dbInterface.write(json_input);
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/json; charset=utf-8")
@@ -96,14 +99,14 @@ public class PostService {
 
     public void updatePost(RoutingContext ctx) {
         User ctxUser = ctx.user();
-        JsonObject post_input = convertRequestInJsonObject(ctx);
+        JsonObject json_input = convertRequestInJsonObject(ctx);
 
-        if(post_input == null)
+        if(json_input == null)
             return;
 
-        //use copy of post_input as ElasticSearchInterfaceImpl API remove "ESDataType" entry
+        //use copy of json_input as ElasticSearchInterfaceImpl API remove "ESDataType" entry
         // where the subsequent update still need this info
-        JsonObject post_db = dbInterface.read(post_input.copy());
+        JsonObject post_db = dbInterface.read(json_input.copy());
 
 
         if(post_db == null) {
@@ -117,8 +120,8 @@ public class PostService {
             return;
         }
 
-        post_input.put("modified_time", System.currentTimeMillis());
-        dbInterface.update(post_input);
+        json_input.put("modified_time", System.currentTimeMillis());
+        dbInterface.update(json_input);
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")

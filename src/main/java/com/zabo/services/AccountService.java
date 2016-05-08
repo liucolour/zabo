@@ -2,12 +2,11 @@ package com.zabo.services;
 
 import com.zabo.account.Role;
 import com.zabo.account.UserAccount;
-import com.zabo.account.UserProfile;
-import com.zabo.dao.DAO;
-import com.zabo.dao.DAOFactory;
-import io.vertx.core.MultiMap;
+import com.zabo.dao.DBInterface;
+import com.zabo.dao.ESDataType;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
@@ -21,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by zhaoboliu on 4/27/16.
@@ -41,31 +41,56 @@ import java.util.List;
 public class AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountService.class);
 
-    public static void createUserAccount(RoutingContext ctx) {
+    private DBInterface dbInterface;
+
+    public AccountService(DBInterface dbInterface){
+        this.dbInterface = dbInterface;
+    }
+
+    public void createUserAccount(RoutingContext ctx) {
         createAccountWithRole(ctx, Role.User);
     }
 
-    public static void createAdminAccount(RoutingContext ctx) {
+    public void createAdminAccount(RoutingContext ctx) {
         createAccountWithRole(ctx, Role.Admin);
     }
 
-    private static void createAccountWithRole(RoutingContext ctx, Role role) {
+    private void createAccountWithRole(RoutingContext ctx, Role role) {
         createAccount(ctx, role);
     }
 
-    private static void createAccount(RoutingContext ctx, Role role) {
-        JsonObject json = ctx.getBodyAsJson();
-        String username = json.getString("username").toLowerCase().trim();
-        String password = json.getString("password").trim();
+    public UserAccount getUserAccountFromDB(String username){
+        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
-        if(username == null || password == null)
-            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+        JsonObject json_input = new JsonObject();
+        json_input.put("query", new JsonObject(queryUserStatement));
+        json_input.put("ESDataType", ESDataType.Account.toString());
 
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
+        JsonArray userAccounts = dbInterface.query(json_input);
+
+        if(userAccounts == null || userAccounts.size() == 0) {
+            logger.warn("No account found for user " + username);
+            return null;
+        }
+
+        if(userAccounts.size() > 1){
+            logger.warn("More than one user found for user " + username);
+            throw new RuntimeException("More than one user found for user " + username);
+        }
+
+        JsonObject account_json = userAccounts.getJsonObject(0);
+        UserAccount account = Json.decodeValue(account_json.encode(), UserAccount.class);
+        account.setId(account_json.getString("id"));
+        return account;
+    }
+
+    private void createAccount(RoutingContext ctx, Role role) {
+        JsonObject json_param = ctx.getBodyAsJson();
+        String username = json_param.getString("username");
+        String password = json_param.getString("password");
 
         // Check for existing username
-        if (getUserByUserID(dao, username) != null){
+        if (getUserAccountFromDB(username) != null){
             ctx.fail(HttpResponseStatus.CONFLICT.getCode());
             return;
         }
@@ -80,35 +105,47 @@ public class AccountService {
         user.setSalt(salt.toBase64());
         user.setCreated_time(System.currentTimeMillis());
 
-        dao.write(user);
+        JsonObject json_input = new JsonObject(Json.encode(user));
+        json_input.put("ESDataType", ESDataType.Account.toString());
+
+        JsonObject result = dbInterface.write(json_input);
 
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Created account for username : " + username + " with role : " + role.toString());
+                .end("Created account for username : " + username +
+                        " with role : " + role.toString() +
+                        " and id : " + result.getString("id"));
     }
 
-    public static void deleteAccount(RoutingContext ctx) {
-
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
-
+    public void deleteAccount(RoutingContext ctx) {
         User ctxUser = ctx.user();
+
         String contextUser = ctxUser.principal().getString("username");
 
         ctxUser.isAuthorised("role:User", res -> {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    UserAccount user_db = getUserByUserID(dao, contextUser);
+                    UserAccount user_db = getUserAccountFromDB(contextUser);
                     if(user_db == null) {
                         logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
+
+                    JsonObject json_input = new JsonObject();
+                    json_input.put("id", user_db.getId());
+                    json_input.put("ESDataType", ESDataType.Account.toString());
+                    dbInterface.delete(json_input);
                     //log out
                     ctx.clearUser();
-                    deleteAccount(ctx, dao, user_db.getId(), user_db.getUsername());
+
+                    ctx.response()
+                            .setStatusCode(HttpResponseStatus.OK.getCode())
+                            .putHeader("content-type", "application/text; charset=utf-8")
+                            .end("Deleted account of username : " + contextUser);
+
                 }
             }
         });
@@ -128,25 +165,34 @@ public class AccountService {
 
                     // get own account
                     if (username_input == null || contextUser.equals(username_input)) {
-                        user_db = getUserByUserID(dao, contextUser);
+                        user_db = getUserAccountFromDB(contextUser);
                         // log out
                         ctx.clearUser();
                     } else
                         // get other user account
-                        user_db = getUserByUserID(dao, username_input);
+                        user_db = getUserAccountFromDB(username_input);
 
                     if(user_db == null) {
                         logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                         return;
                     }
-                    deleteAccount(ctx, dao, user_db.getId(), user_db.getUsername());
+
+                    JsonObject json_input = new JsonObject();
+                    json_input.put("id", user_db.getId());
+                    json_input.put("ESDataType", ESDataType.Account.toString());
+                    dbInterface.delete(json_input);
+
+                    ctx.response()
+                            .setStatusCode(HttpResponseStatus.OK.getCode())
+                            .putHeader("content-type", "application/text; charset=utf-8")
+                            .end("Deleted account of username : " + contextUser);
                 }
             }
         });
     }
 
-    public static void updateAccountPassword(RoutingContext ctx) {
+    public  void updateAccountPassword(RoutingContext ctx) {
         String password = ctx.request().formAttributes().get("password");
 
         if(password == null || password.equals("")){
@@ -156,17 +202,7 @@ public class AccountService {
         // Only current user can update his/her own account
         String contextUser = ctx.user().principal().getString("username");
 
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
-
-        if(dao == null) {
-            ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-            return;
-        }
-
-        UserAccount user_db;
-
-        user_db = getUserByUserID(dao, contextUser);
+        UserAccount user_db = getUserAccountFromDB(contextUser);
 
         if(user_db == null) {
             logger.error("Couldn't find username " + contextUser);
@@ -184,7 +220,10 @@ public class AccountService {
         user_db.setSalt(salt.toBase64());
         user_db.setHash_algo(Sha512Hash.ALGORITHM_NAME);
 
-        dao.update(user_db.getId(), user_db);
+        JsonObject json_input = new JsonObject(Json.encode(user_db));
+        json_input.put("ESDataType", ESDataType.Account.toString());
+
+        dbInterface.update(json_input);
 
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
@@ -192,12 +231,12 @@ public class AccountService {
                 .end("Updated password for username : " + user_db.getUsername());
     }
 
-    public static void updateAccountProfile(RoutingContext ctx) {
+    public  void updateAccountProfile(RoutingContext ctx) {
         String content = ctx.getBodyAsString();
         UserAccount user_input = null;
         try {
             user_input = Json.decodeValue(content, UserAccount.class);
-        }catch (DecodeException e){
+        } catch (DecodeException e){
             //ignore
         }
 
@@ -209,15 +248,7 @@ public class AccountService {
         // Only current user can update his/her own account
         String contextUser = ctx.user().principal().getString("username");
 
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
-
-        if(dao == null) {
-            ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
-            return;
-        }
-
-        UserAccount user_db = getUserByUserID(dao, contextUser);
+        UserAccount user_db = getUserAccountFromDB(contextUser);
 
         if(user_db == null) {
             logger.error("Couldn't find username " + contextUser);
@@ -225,10 +256,12 @@ public class AccountService {
             return;
         }
 
-        if(user_input != null && user_input.getProfile() != null)
-            user_db.setProfile(user_input.getProfile());
+        user_db.setProfile(user_input.getProfile());
 
-        dao.update(user_db.getId(), user_db);
+        JsonObject json_input = new JsonObject(Json.encode(user_db));
+        json_input.put("ESDataType", ESDataType.Account.toString());
+
+        dbInterface.update(json_input);
 
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
@@ -236,11 +269,7 @@ public class AccountService {
                 .end("Updated profile for username : " + user_db.getUsername());
     }
 
-    public static void getAccount(RoutingContext ctx) {
-
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
-
+    public void getAccount(RoutingContext ctx) {
         User ctxUser = ctx.user();
         String contextUser = ctxUser.principal().getString("username");
 
@@ -248,7 +277,7 @@ public class AccountService {
             if(res.succeeded()){
                 boolean hasRole = res.result();
                 if(hasRole) {
-                    UserAccount user_db = getUserByUserID(dao, contextUser);
+                    UserAccount user_db = getUserAccountFromDB(contextUser);
                     if(user_db == null) {
                         logger.error("Couldn't find username " + contextUser);
                         ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
@@ -278,10 +307,10 @@ public class AccountService {
 
                     // get own account
                     if (username_input == null || contextUser.equals(username_input))
-                        user_db = getUserByUserID(dao, contextUser);
+                        user_db = getUserAccountFromDB(contextUser);
                     else
                         // get other user account
-                        user_db = getUserByUserID(dao, username_input);
+                        user_db = getUserAccountFromDB(username_input);
 
                     if(user_db == null) {
                         logger.error("Couldn't find username " + contextUser);
@@ -298,41 +327,14 @@ public class AccountService {
         });
     }
 
-    private static void removeSensitiveAccountInfo(UserAccount userAccount) {
-//        JsonObject jsonObject = new JsonObject();
-//        jsonObject.put("id", userAccount.getId());
-//        jsonObject.put("username", userAccount.getUsername());
-//        jsonObject.put("profile", new JsonObject(Json.encode(userAccount.getProfile())));
+    private  void removeSensitiveAccountInfo(UserAccount userAccount) {
         userAccount.setPassword("");
         userAccount.setSalt("");
         userAccount.setHash_algo("");
         userAccount.setPermission("");
     }
 
-    private static UserAccount getUserByUserID(DAO dao, String username) {
-        String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
-
-        List<UserAccount> userAccounts;
-        userAccounts = dao.query(queryUserStatement);
-        if (userAccounts.size() > 1) {
-            logger.error("Found duplicated user in database with id " + username);
-            throw new RuntimeException("Found duplicated username in database");
-        }
-
-        if(userAccounts.size() == 0)
-            return null;
-        return userAccounts.get(0);
-    }
-
-    private static void deleteAccount(RoutingContext ctx, DAO dao, String id, String username) {
-        dao.delete(id);
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Deleted account of username : " + username);
-    }
-
-    public static void getAllAccountsByRole(RoutingContext ctx){
+    public void getAllAccountsByRole(RoutingContext ctx){
         String role = ctx.request().getParam("role");
         if(role == null){
             ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
@@ -341,16 +343,21 @@ public class AccountService {
 
         String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role);
 
-        DAOFactory factory = DAOFactory.getDAOFactorybyConfig();
-        DAO dao = factory.getUseAccountDAO();
+        JsonObject json_input = new JsonObject();
+        json_input.put("query", new JsonObject(queryRoleStatement));
+        json_input.put("ESDataType", ESDataType.Account.toString());
 
-        List<UserAccount> UserAccounts;
-        UserAccounts = dao.query(queryRoleStatement);
-        UserAccounts.stream().forEach(AccountService::removeSensitiveAccountInfo);
+        JsonArray result = dbInterface.query(json_input);
 
+        List<JsonObject> accounts_json = result.getList();
+
+        List<UserAccount> userAccounts = accounts_json.stream()
+                .map(json->Json.decodeValue(json.encode(), UserAccount.class))
+                .collect(Collectors.toList());
+        userAccounts.stream().forEach(this::removeSensitiveAccountInfo);
         ctx.response()
                 .setStatusCode(HttpResponseStatus.OK.getCode())
                 .putHeader("content-type", "application/json; charset=utf-8")
-                .end(Json.encodePrettily(UserAccounts));
+                .end(Json.encodePrettily(userAccounts));
     }
 }

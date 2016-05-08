@@ -5,12 +5,10 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
@@ -103,8 +101,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         if(Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
-        UpdateResponse response = client
-                .prepareUpdate(index, type, id)
+        client.prepareUpdate(index, type, id)
                 .setDoc(jsonObject.encode())
                 .get();
     }
@@ -124,7 +121,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
 
         try {
-            DeleteResponse response = client.prepareDelete(index, type, id).get();
+            client.prepareDelete(index, type, id).get();
         } catch (DocumentMissingException e) {
             // ignore
         }
@@ -142,6 +139,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
         JsonObject query = jsonObject.getJsonObject("query");
         String field = jsonObject.getString("sort");
+
         if(Utils.ifStringEmpty(field)){
             field = "created_time";
         }
@@ -155,10 +153,11 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
             queryBuilder.setTypes(type);
 
         queryBuilder.setQuery(statement);
-
+        //TODO: refactor to add sort order from input
         if(!Utils.ifStringEmpty(field))
             queryBuilder.addSort(field, SortOrder.DESC);
 
+        //TODO: add aggreation support
         SearchResponse response = queryBuilder.execute().actionGet();
 
         JsonArray list = new JsonArray();
