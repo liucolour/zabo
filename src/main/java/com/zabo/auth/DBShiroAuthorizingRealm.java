@@ -48,13 +48,13 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        UserAccount account = accountService.getUserAccountFromDB(username);
+        JsonObject account = accountService.getUserAccountFromDB(username);
         if(account == null)
             throw new UnknownAccountException("No account found for user " + username);
 
         Set<String> roleNames = new HashSet<>();
 
-        roleNames.add(account.getRole().toString());
+        roleNames.add(account.getString("role"));
 
         return new SimpleAuthorizationInfo(roleNames);
     }
@@ -68,12 +68,12 @@ public class DBShiroAuthorizingRealm extends AuthorizingRealm {
             throw new AccountException("Null usernames are not allowed by this realm.");
         }
 
-        UserAccount account = accountService.getUserAccountFromDB(username);
+        JsonObject account = accountService.getUserAccountFromDB(username);
         if(account == null)
             throw new UnknownAccountException("No account found for user " + username);
 
-        String dbPassword = account.getPassword();
-        String salt = account.getSalt();
+        String dbPassword = account.getString("password");
+        String salt = account.getString("salt");
 
         return new SimpleAuthenticationInfo(
                 username,

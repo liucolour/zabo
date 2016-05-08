@@ -1,0 +1,110 @@
+{
+  "job": {
+    "properties": {
+      "category": {
+        "type": "string",
+        "index": "not_analyzed"
+      },
+      "created_time": {
+        "type": "date"
+      },
+      "description": {
+        "type": "string"
+      },
+      "duration": {
+        "properties": {
+          "number": {
+            "type": "long"
+          },
+          "unit": {
+            "type": "string",
+            "index": "not_analyzed",
+            "doc_values": false
+          }
+        }
+      },
+      "experienced_required": {
+        "type": "boolean"
+      },
+      "is_provider": {
+        "type": "boolean"
+      },
+      "status": {
+        "type": "string",
+        "index": "not_analyzed"
+      },
+      "image_url_list": {
+        "type": "string",
+        "index": "not_analyzed"
+      },
+      "location": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "index":    "not_analyzed"
+          },
+          "city": {
+            "type": "string",
+            "index":    "not_analyzed"
+          },
+          "country": {
+            "type": "string",
+            "index":    "not_analyzed"
+          },
+          "county": {
+            "type": "string",
+            "index":    "not_analyzed"
+          },
+          "neighborhood": {
+            "type": "string",
+            "index":    "not_analyzed"
+          },
+          "state": {
+            "type": "string",
+            "index":    "not_analyzed"
+          }
+        }
+      },
+      "max_pay": {
+        "type": "double"
+      },
+      "min_pay": {
+        "type": "double"
+      },
+      "mode": {
+        "type": "string",
+        "index": "not_analyzed"
+      },
+      "modified_time": {
+        "type": "date"
+      },
+      "num_year_experience": {
+        "type": "long"
+      },
+      "pay": {
+        "type": "double"
+      },
+      "title": {
+        "type": "string"
+      },
+      "unit": {
+        "type": "string",
+        "index": "not_analyzed",
+        "doc_values": false
+      },
+      "payment_method": {
+        "type": "string"
+      },
+      "user_id": {
+        "type": "string",
+        "index": "not_analyzed",
+        "doc_values": false
+      },
+      "id": {
+        "type": "string",
+        "index": "not_analyzed",
+        "doc_values": false
+      }
+    }
+  }
+}

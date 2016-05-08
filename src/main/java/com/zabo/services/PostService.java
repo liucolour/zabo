@@ -39,7 +39,7 @@ public class PostService {
         JsonObject query = jsonObject.getJsonObject("query");
         if(!Utils.ifStringEmpty(category)) {
             jsonObject.put("ESDataType", category);
-            if( query.isEmpty()) {
+            if(query == null || query.isEmpty()) {
                 try {
                     // category string has to be the same class name
                     Class clazz = Class.forName("com.zabo.post." + category);

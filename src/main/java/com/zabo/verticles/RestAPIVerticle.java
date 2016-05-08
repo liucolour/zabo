@@ -1,5 +1,6 @@
 package com.zabo.verticles;
 
+import com.zabo.account.Role;
 import com.zabo.auth.DBShiroAuthorizingRealm;
 import com.zabo.auth.RoleBasedFormLoginHandler;
 import com.zabo.dao.ElasticSearchInterfaceImpl;
@@ -46,6 +47,10 @@ public class RestAPIVerticle extends AbstractVerticle {
 
         PostService postService = new PostService(new ElasticSearchInterfaceImpl());
         AccountService accountService = new AccountService(new ElasticSearchInterfaceImpl());
+
+        accountService.createAccount(System.getProperty("admin.default.username"),
+                                     System.getProperty("admin.default.password"),
+                                     Role.Admin);
 
         AuthorizingRealm userRealm = new DBShiroAuthorizingRealm(accountService);
         HashedCredentialsMatcher credentialsMatcher = new HashedCredentialsMatcher();

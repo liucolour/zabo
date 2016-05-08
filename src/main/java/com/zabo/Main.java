@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
  * Created by zhaoboliu on 2/15/16.
  */
 //TODO: Admin aggregation
+//TODO: post auto deletion
 //TODO: Geo location search within range of miles of zipcode
 //TODO: Pagination
 //TODO: Image cropping

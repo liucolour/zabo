@@ -155,13 +155,11 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         if(Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
-
         try {
             client.prepareDelete(index, type, id).get();
         } catch (DocumentMissingException e) {
             // ignore
         }
-
     }
 
     public JsonArray query(JsonObject jsonObject) {
@@ -175,6 +173,8 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
         JsonObject query = jsonObject.getJsonObject("query");
         String field = jsonObject.getString("sort");
+        String from_str = jsonObject.getString("from");
+        String size_str = jsonObject.getString("size");
 
         if(Utils.ifStringEmpty(field)){
             field = "created_time";
@@ -189,9 +189,18 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
             queryBuilder.setTypes(type);
 
         queryBuilder.setQuery(statement);
+
         //TODO: refactor to add sort order from input
         if(!Utils.ifStringEmpty(field))
             queryBuilder.addSort(field, SortOrder.DESC);
+
+        if(!Utils.ifStringEmpty(from_str)){
+            queryBuilder.setFrom(Integer.parseInt(from_str));
+        }
+
+        if(!Utils.ifStringEmpty(size_str)){
+            queryBuilder.setSize(Integer.parseInt(size_str));
+        }
 
         //TODO: add aggregation support
         SearchResponse response = queryBuilder.execute().actionGet();
