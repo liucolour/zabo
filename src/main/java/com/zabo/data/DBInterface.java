@@ -1,4 +1,4 @@
-package com.zabo.dao;
+package com.zabo.data;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

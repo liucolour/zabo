@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit;
 //TODO: Integration tests (vertx http client + Junit)
 //TODO: post auto deletion
 //TODO: Geo location search within range of miles of zipcode
-//TODO: Image cropping
 //TODO: Anonymous email
 //TODO: HTTPS
 //TODO: Daemon application

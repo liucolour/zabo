@@ -1,9 +1,9 @@
 package com.zabo.services;
 
-import com.zabo.dao.DBInterface;
-import com.zabo.dao.ESDataType;
+import com.zabo.data.DBInterface;
+import com.zabo.data.ESDataType;
 import com.zabo.utils.Utils;
-import io.vertx.core.Vertx;
+import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -14,12 +14,21 @@ import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.RoutingContext;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 /**
  * Created by zhaoboliu on 3/22/16.
  */
 //TODO: listPostedPost and listDraftedPostForUser
 //TODO: introduce post save and submit for view
-//TODO: one more layer before dao like send post to cache
+//TODO: one more layer before data like send post to cache
 //TODO: use vertx.executionBlock to make async call, refer to ShiroAuthProviderImpl
 public class PostService {
     private static final Logger logger = LoggerFactory.getLogger(PostService.class.getName());
@@ -67,7 +76,6 @@ public class PostService {
     }
 
     public void addPost(RoutingContext ctx) {
-        Vertx vertx = ctx.vertx();
         JsonObject json_input = convertRequestInJsonObject(ctx);
         if(json_input == null) {
             return;
@@ -81,6 +89,7 @@ public class PostService {
         json_input.put("modified_time", timestamp);
 
         JsonObject result = dbInterface.write(json_input);
+
         ctx.response()
                 .setStatusCode(HttpResponseStatus.CREATED.getCode())
                 .putHeader("content-type", "application/json; charset=utf-8")
@@ -225,7 +234,7 @@ public class PostService {
     // Test only
     public void getUploadUI(RoutingContext routingContext) {
         routingContext.response().putHeader("content-type", "text/html").end(
-                "<form action=\"/api/upload/form\" method=\"post\" enctype=\"multipart/form-data\">\n" +
+                "<form action=\"/api/upload/image\" method=\"post\" enctype=\"multipart/form-data\">\n" +
                         "    <div>\n" +
                         "        <label for=\"name\">Select a file:</label>\n" +
                         "        <input type=\"file\" name=\"file\" />\n" +
@@ -240,28 +249,84 @@ public class PostService {
         );
     }
 
-    // Test Only
-    public void uploadForm(RoutingContext routingContext) {
+    // TODO: refer to BodyHandlerImpl, move file upload here
+    // https://github.com/vert-x3/vertx-examples/blob/master/core-examples/src/main/java/io/vertx/example/core/http/simpleformupload/SimpleFormUploadServer.java
+    public void uploadImage(RoutingContext ctx) {
 
+        Iterator<FileUpload> it = ctx.fileUploads().iterator();
+        List<String> new_files = new ArrayList<>();
+        while(it.hasNext()){
+            FileUpload file = it.next();
+            //http://www.mkyong.com/java/how-to-resize-an-image-in-java/
+            String uploadedFileName = file.uploadedFileName();
 
-        for (FileUpload f : routingContext.fileUploads()) {
-            routingContext.response().putHeader("Content-Type", "text/html");
-            routingContext.response().setChunked(true);
-            int indx = f.uploadedFileName().lastIndexOf("/");
-            String id = f.uploadedFileName().substring(indx+1);
-            routingContext.response().write("<div>\n");
-            routingContext.response().write("<p>Uploaded File id: " + id + "</p>");
-            routingContext.response().write("<p>File Name: " + f.fileName() + "</p>");
-            routingContext.response().write("<p>Size: " + f.size() + "</p>");
-            routingContext.response().write("<p>CharSet: " + f.charSet() + "</p>");
-            routingContext.response().write("<p>Content Transfer Encoding: " + f.contentTransferEncoding() + "</p>");
-            routingContext.response().write("<p>Content Type: " + f.contentType() + "</p>");
-            routingContext.response().write("</div>\n");
-            routingContext.response().write("<div>\n");
-            routingContext.response().write("<img src=/image/"+ id + " alt=\"Image Not Found\" />\n");
-            routingContext.response().write("</div>\n");
+            String big_file_name = uploadedFileName + "_b.jpg";
+            String small_file_name = uploadedFileName + "_s.jpg";
+            int big_width = Utils.getPropertyInt("image.big.width", 600);
+            int big_height = Utils.getPropertyInt("image.big.height", 450);
+            int small_width = Utils.getPropertyInt("image.small.width", 50);
+            int small_height = Utils.getPropertyInt("image.small.height", 50);
+
+            //TODO: file reupload to s3
+            try {
+                BufferedImage original_image = ImageIO.read(new File(uploadedFileName));
+
+                // convert png to jpg first, may use other way to check if png file
+                // http://stackoverflow.com/questions/11425521/how-to-get-the-formatexjpen-png-gif-of-image-file-bufferedimage-in-java
+                if(file.fileName().endsWith(".png")){
+                    BufferedImage pngBufferedImage = new BufferedImage(original_image.getWidth(),
+                            original_image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    pngBufferedImage.createGraphics().drawImage(original_image, 0, 0, Color.WHITE, null);
+                    original_image = pngBufferedImage;
+
+                }
+                BufferedImage resized_image_big = resizeImage(original_image, big_width, big_height);
+                ImageIO.write(resized_image_big, "jpg", new File(big_file_name));
+
+                BufferedImage resized_image_small = resizeImage(original_image, small_width, small_height);
+                ImageIO.write(resized_image_small, "jpg", new File(small_file_name));
+                new_files.add(uploadedFileName);
+            } catch (IOException e) {
+                logger.error("Read file {} failed with exception ", uploadedFileName, e);
+                continue;
+            }
+            FileSystem fileSystem = ctx.vertx().fileSystem();
+            fileSystem.exists(uploadedFileName, existResult -> {
+                if (existResult.failed()) {
+                    it.remove();
+                    logger.warn("Could not detect if image exists, not deleting: " + uploadedFileName, existResult.cause());
+                } else if (existResult.result()) {
+                    fileSystem.delete(uploadedFileName, deleteResult -> {
+                        if (deleteResult.failed()) {
+                            logger.warn("Deleting image failed: " + uploadedFileName, deleteResult.cause());
+                            return;
+                        }
+                        it.remove();
+                    });
+                }
+            });
         }
+        ctx.response()
+                .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                .end(Json.encodePrettily(new_files));
+    }
 
-        routingContext.response().end();
+    private BufferedImage resizeImage(BufferedImage image, int width, int height) {
+
+        BufferedImage resizedImage = new BufferedImage(width, height,
+                                        image.getType()==0? BufferedImage.TYPE_INT_ARGB : image.getType());
+        Graphics2D g = resizedImage.createGraphics();
+        g.drawImage(image, 0, 0, width, height, null);
+        g.dispose();
+        g.setComposite(AlphaComposite.Src);
+
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON);
+
+        return resizedImage;
     }
 }

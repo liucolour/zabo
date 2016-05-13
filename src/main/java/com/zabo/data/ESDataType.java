@@ -1,4 +1,4 @@
-package com.zabo.dao;
+package com.zabo.data;
 
 /**
  * Created by zhaoboliu on 5/5/16.

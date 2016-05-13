@@ -2,8 +2,8 @@ package com.zabo.services;
 
 import com.zabo.account.Role;
 import com.zabo.account.UserAccount;
-import com.zabo.dao.DBInterface;
-import com.zabo.dao.ESDataType;
+import com.zabo.data.DBInterface;
+import com.zabo.data.ESDataType;
 import com.zabo.utils.Utils;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;

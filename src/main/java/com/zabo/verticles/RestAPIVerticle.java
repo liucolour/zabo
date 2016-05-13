@@ -3,7 +3,7 @@ package com.zabo.verticles;
 import com.zabo.account.Role;
 import com.zabo.auth.DBShiroAuthorizingRealm;
 import com.zabo.auth.RoleBasedFormLoginHandler;
-import com.zabo.dao.ElasticSearchInterfaceImpl;
+import com.zabo.data.ElasticSearchInterfaceImpl;
 import com.zabo.services.AccountService;
 import com.zabo.services.PostService;
 import com.zabo.utils.Utils;
@@ -19,8 +19,6 @@ import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher;
 import org.apache.shiro.crypto.hash.Sha512Hash;
 import org.apache.shiro.realm.AuthorizingRealm;
-
-import java.io.File;
 
 /**
  * Created by zhaoboliu on 4/3/16.
@@ -125,7 +123,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.post("/api/posts/category/:category").handler(postService::addPost);
         router.put("/api/posts/category/:category/:id").handler(postService::updatePost);
         router.delete("/api/posts/category/:category/:id").handler(postService::deletePost);
-        router.post("/api/upload/form").handler(postService::uploadForm);
+        router.post("/api/upload/image").handler(postService::uploadImage);
 
         router.delete("/api/accounts").handler(accountService::deleteAccount);
         router.post("/api/accounts").handler(accountService::getAccount);
@@ -140,7 +138,7 @@ public class RestAPIVerticle extends AbstractVerticle {
                 .setAllowRootFileSystemAccess(true)
                 .setWebRoot(System.getProperty("basedir") + "/webroot"));
 
-        Integer port = Utils.getPropertyInt("http.port");
+        Integer port = Utils.getPropertyInt("http.port", 8080);
         if(port == null)
             return;
         vertx

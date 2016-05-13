@@ -14,13 +14,13 @@ import java.util.Random;
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class.getName());
 
-    public static Integer getPropertyInt(String key) {
+    public static Integer getPropertyInt(String key, int default_val) {
         String val = System.getProperty(key);
         try {
             return  Integer.parseInt(val);
         } catch (NumberFormatException e) {
             logger.error("Invalid key for integer ", e);
-            return null;
+            return default_val;
         }
     }
 

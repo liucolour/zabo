@@ -1,13 +1,6 @@
 package com.zabo.auth;
 
-import com.zabo.account.Role;
-import com.zabo.account.UserAccount;
-import com.zabo.dao.DBInterface;
-import com.zabo.dao.ESDataType;
-import com.zabo.dao.ElasticSearchInterfaceImpl;
 import com.zabo.services.AccountService;
-import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
@@ -21,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
