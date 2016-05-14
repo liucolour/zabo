@@ -29,7 +29,6 @@ import java.util.List;
 //TODO: listPostedPost and listDraftedPostForUser
 //TODO: introduce post save and submit for view
 //TODO: one more layer before data like send post to cache
-//TODO: use vertx.executionBlock to make async call, refer to ShiroAuthProviderImpl
 public class PostService {
     private static final Logger logger = LoggerFactory.getLogger(PostService.class.getName());
 
@@ -76,105 +75,119 @@ public class PostService {
     }
 
     public void addPost(RoutingContext ctx) {
-        JsonObject json_input = convertRequestInJsonObject(ctx);
-        if(json_input == null) {
-            return;
-        }
-        User ctxUser = ctx.user();
-        String username = ctxUser.principal().getString("username");
+        ctx.vertx().executeBlocking(fut -> {
+            JsonObject json_input = convertRequestInJsonObject(ctx);
+            if(json_input == null) {
+                return;
+            }
+            User ctxUser = ctx.user();
+            String username = ctxUser.principal().getString("username");
 
-        json_input.put("username",username);
-        long timestamp = System.currentTimeMillis();
-        json_input.put("created_time", timestamp);
-        json_input.put("modified_time", timestamp);
+            json_input.put("username",username);
+            long timestamp = System.currentTimeMillis();
+            json_input.put("created_time", timestamp);
+            json_input.put("modified_time", timestamp);
 
-        JsonObject result = dbInterface.write(json_input);
+            JsonObject result = dbInterface.write(json_input);
 
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.CREATED.getCode())
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(result.encodePrettily());
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                    .putHeader("content-type", "application/json; charset=utf-8")
+                    .end(result.encodePrettily());
+        }, false, null);
+
     }
 
     public void getPost(RoutingContext ctx) {
-        JsonObject post = dbInterface.read(convertRequestInJsonObject(ctx));
-        if(post == null)
-            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(Json.encodePrettily(post));
+        ctx.vertx().executeBlocking(fut -> {
+            JsonObject post = dbInterface.read(convertRequestInJsonObject(ctx));
+            if(post == null) {
+                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                return;
+            }
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/json; charset=utf-8")
+                    .end(Json.encodePrettily(post));
+        }, false, null);
+
     }
 
     public void updatePost(RoutingContext ctx) {
-        User ctxUser = ctx.user();
-        JsonObject json_input = convertRequestInJsonObject(ctx);
+        ctx.vertx().executeBlocking(fut -> {
+            User ctxUser = ctx.user();
+            JsonObject json_input = convertRequestInJsonObject(ctx);
 
-        if(json_input == null)
-            return;
+            if(json_input == null){
+                return;
+            }
 
-        //use copy of json_input as ElasticSearchInterfaceImpl API remove "ESDataType" entry
-        // where the subsequent update still need this info
-        JsonObject post_db = dbInterface.read(json_input.copy());
+            //use copy of json_input as ElasticSearchInterfaceImpl API remove "ESDataType" entry
+            // where the subsequent update still need this info
+            JsonObject post_db = dbInterface.read(json_input.copy());
 
 
-        if(post_db == null) {
-            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-            return;
-        }
+            if(post_db == null) {
+                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                return;
+            }
 
-        // Only logged in user can update self post
-        if (!post_db.getString("username").equals(ctxUser.principal().getString("username"))) {
-            ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
-            return;
-        }
+            // Only logged in user can update self post
+            if (!post_db.getString("username").equals(ctxUser.principal().getString("username"))) {
+                ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
+                return;
+            }
 
-        json_input.put("modified_time", System.currentTimeMillis());
-        dbInterface.update(json_input);
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.CREATED.getCode())
-                .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated post id " + post_db.getString("id"));
+            json_input.put("modified_time", System.currentTimeMillis());
+            dbInterface.update(json_input);
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                    .putHeader("content-type", "application/text; charset=utf-8")
+                    .end("Updated post id " + post_db.getString("id"));
+        }, false, null);
+
     }
 
-
     public void deletePost(RoutingContext ctx) {
+        ctx.vertx().executeBlocking(fut -> {
+            User ctxUser = ctx.user();
+            final JsonObject json_input = convertRequestInJsonObject(ctx);
 
-        User ctxUser = ctx.user();
-        final JsonObject json_input = convertRequestInJsonObject(ctx);
-
-        if(json_input == null)
-            return;
-
-        ctxUser.isAuthorised("role:User", res -> {
-            //User can only delete post created by self
-            if(res.succeeded()){
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    JsonObject post_db = dbInterface.read(json_input.copy());
-                    if(post_db == null) {
-                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
-                    }
-
-                    if(!post_db.getString("username").equals(ctxUser.principal().getString("username"))) {
-                        ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
-                        return;
-                    }
-                    deleteThenResponse(ctx, json_input);
-                }
+            if(json_input == null) {
+                return;
             }
-        });
 
-        ctxUser.isAuthorised("role:Admin", res -> {
-            //Admin can delete anyone's post
-            if(res.succeeded()) {
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    deleteThenResponse(ctx, json_input);
+            ctxUser.isAuthorised("role:User", res -> {
+                //User can only delete post created by self
+                if(res.succeeded()){
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        JsonObject post_db = dbInterface.read(json_input.copy());
+                        if(post_db == null) {
+                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                            return;
+                        }
+
+                        if(!post_db.getString("username").equals(ctxUser.principal().getString("username"))) {
+                            ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
+                            return;
+                        }
+                        deleteThenResponse(ctx, json_input);
+                    }
                 }
-            }
-        });
+            });
+
+            ctxUser.isAuthorised("role:Admin", res -> {
+                //Admin can delete anyone's post
+                if(res.succeeded()) {
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        deleteThenResponse(ctx, json_input);
+                    }
+                }
+            });
+        }, false, null);
+
     }
 
     private void deleteThenResponse(RoutingContext ctx, JsonObject jsonObject){
@@ -186,41 +199,47 @@ public class PostService {
     }
 
     public void queryPosts(RoutingContext ctx) {
-        JsonObject json_input = convertRequestInJsonObject(ctx);
-        queryThenResponse(ctx, json_input);
+        ctx.vertx().executeBlocking(fut -> {
+            JsonObject json_input = convertRequestInJsonObject(ctx);
+            queryThenResponse(ctx, json_input);
+        }, false, null);
     }
 
     public void queyUserPosts(RoutingContext ctx) {
-        final JsonObject json_input = convertRequestInJsonObject(ctx);
+        ctx.vertx().executeBlocking(fut -> {
+            final JsonObject json_input = convertRequestInJsonObject(ctx);
 
-        if(json_input == null)
-            return;
-
-        User ctxUser = ctx.user();
-        ctxUser.isAuthorised("role:User", res -> {
-            if(res.succeeded()){
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    String username = ctx.user().principal().getString("username");
-                    json_input.put("query",
-                            new JsonObject(String.format(System.getProperty("query.user.statement"), username)));
-                    queryThenResponse(ctx, json_input);
-                }
+            if(json_input == null) {
+                return;
             }
-        });
 
-        ctxUser.isAuthorised("role:Admin", res -> {
-            if(res.succeeded()) {
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    // for admin, use username from json body in request
-                    String username = ctx.getBodyAsJson().getString("username");
-                    json_input.put("query",
-                            new JsonObject(String.format(System.getProperty("query.user.statement"), username)));
-                    queryThenResponse(ctx, json_input);
+            User ctxUser = ctx.user();
+            ctxUser.isAuthorised("role:User", res -> {
+                if(res.succeeded()){
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        String username = ctx.user().principal().getString("username");
+                        json_input.put("query",
+                                new JsonObject(String.format(System.getProperty("query.user.statement"), username)));
+                        queryThenResponse(ctx, json_input);
+                    }
                 }
-            }
-        });
+            });
+
+            ctxUser.isAuthorised("role:Admin", res -> {
+                if(res.succeeded()) {
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        // for admin, use username from json body in request
+                        String username = ctx.getBodyAsJson().getString("username");
+                        json_input.put("query",
+                                new JsonObject(String.format(System.getProperty("query.user.statement"), username)));
+                        queryThenResponse(ctx, json_input);
+                    }
+                }
+            });
+        }, false, null);
+
     }
 
     private void queryThenResponse(RoutingContext ctx, JsonObject json_input) {
@@ -232,83 +251,87 @@ public class PostService {
     }
 
     // Test only
-    public void getUploadUI(RoutingContext routingContext) {
-        routingContext.response().putHeader("content-type", "text/html").end(
-                "<form action=\"/api/upload/image\" method=\"post\" enctype=\"multipart/form-data\">\n" +
-                        "    <div>\n" +
-                        "        <label for=\"name\">Select a file:</label>\n" +
-                        "        <input type=\"file\" name=\"file\" />\n" +
-                        "    </div>\n" +
-                        "    <div class=\"button\">\n" +
-                        "        <button type=\"submit\">Send</button>\n" +
-                        "    </div>" +
-                        "</form>\n" +
-                        "<div>\n" +
-                        "   <img src=/image/dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
-                        "</div>\n"
-        );
+    public void getUploadUI(RoutingContext ctx) {
+        ctx.vertx().executeBlocking(fut -> {
+            ctx.response().putHeader("content-type", "text/html").end(
+                    "<form action=\"/api/upload/image\" method=\"post\" enctype=\"multipart/form-data\">\n" +
+                            "    <div>\n" +
+                            "        <label for=\"name\">Select a file:</label>\n" +
+                            "        <input type=\"file\" name=\"file\" />\n" +
+                            "    </div>\n" +
+                            "    <div class=\"button\">\n" +
+                            "        <button type=\"submit\">Send</button>\n" +
+                            "    </div>" +
+                            "</form>\n" +
+                    "<div>\n" +
+                            "   <img src=/image/dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
+                            "</div>\n"
+            );
+        }, false, null);
     }
 
     // TODO: refer to BodyHandlerImpl, move file upload here
     // https://github.com/vert-x3/vertx-examples/blob/master/core-examples/src/main/java/io/vertx/example/core/http/simpleformupload/SimpleFormUploadServer.java
     public void uploadImage(RoutingContext ctx) {
+        ctx.vertx().executeBlocking(fut -> {
+            Iterator<FileUpload> it = ctx.fileUploads().iterator();
+            List<String> new_files = new ArrayList<>();
+            while(it.hasNext()){
+                FileUpload file = it.next();
+                //http://www.mkyong.com/java/how-to-resize-an-image-in-java/
+                String uploadedFileName = file.uploadedFileName();
 
-        Iterator<FileUpload> it = ctx.fileUploads().iterator();
-        List<String> new_files = new ArrayList<>();
-        while(it.hasNext()){
-            FileUpload file = it.next();
-            //http://www.mkyong.com/java/how-to-resize-an-image-in-java/
-            String uploadedFileName = file.uploadedFileName();
+                String big_file_name = uploadedFileName + "_b.jpg";
+                String small_file_name = uploadedFileName + "_s.jpg";
+                int big_width = Utils.getPropertyInt("image.big.width", 600);
+                int big_height = Utils.getPropertyInt("image.big.height", 450);
+                int small_width = Utils.getPropertyInt("image.small.width", 50);
+                int small_height = Utils.getPropertyInt("image.small.height", 50);
 
-            String big_file_name = uploadedFileName + "_b.jpg";
-            String small_file_name = uploadedFileName + "_s.jpg";
-            int big_width = Utils.getPropertyInt("image.big.width", 600);
-            int big_height = Utils.getPropertyInt("image.big.height", 450);
-            int small_width = Utils.getPropertyInt("image.small.width", 50);
-            int small_height = Utils.getPropertyInt("image.small.height", 50);
+                //TODO: file reupload to s3
+                try {
+                    BufferedImage original_image = ImageIO.read(new File(uploadedFileName));
 
-            //TODO: file reupload to s3
-            try {
-                BufferedImage original_image = ImageIO.read(new File(uploadedFileName));
+                    // convert png to jpg first, may use other way to check if png file
+                    // http://stackoverflow.com/questions/11425521/how-to-get-the-formatexjpen-png-gif-of-image-file-bufferedimage-in-java
+                    if(file.fileName().endsWith(".png")){
+                        BufferedImage pngBufferedImage = new BufferedImage(original_image.getWidth(),
+                                original_image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                        pngBufferedImage.createGraphics().drawImage(original_image, 0, 0, Color.WHITE, null);
+                        original_image = pngBufferedImage;
 
-                // convert png to jpg first, may use other way to check if png file
-                // http://stackoverflow.com/questions/11425521/how-to-get-the-formatexjpen-png-gif-of-image-file-bufferedimage-in-java
-                if(file.fileName().endsWith(".png")){
-                    BufferedImage pngBufferedImage = new BufferedImage(original_image.getWidth(),
-                            original_image.getHeight(), BufferedImage.TYPE_INT_RGB);
-                    pngBufferedImage.createGraphics().drawImage(original_image, 0, 0, Color.WHITE, null);
-                    original_image = pngBufferedImage;
+                    }
+                    BufferedImage resized_image_big = resizeImage(original_image, big_width, big_height);
+                    ImageIO.write(resized_image_big, "jpg", new File(big_file_name));
 
+                    BufferedImage resized_image_small = resizeImage(original_image, small_width, small_height);
+                    ImageIO.write(resized_image_small, "jpg", new File(small_file_name));
+                    new_files.add(uploadedFileName);
+                } catch (IOException e) {
+                    logger.error("Read file {} failed with exception ", uploadedFileName, e);
+                    continue;
                 }
-                BufferedImage resized_image_big = resizeImage(original_image, big_width, big_height);
-                ImageIO.write(resized_image_big, "jpg", new File(big_file_name));
-
-                BufferedImage resized_image_small = resizeImage(original_image, small_width, small_height);
-                ImageIO.write(resized_image_small, "jpg", new File(small_file_name));
-                new_files.add(uploadedFileName);
-            } catch (IOException e) {
-                logger.error("Read file {} failed with exception ", uploadedFileName, e);
-                continue;
-            }
-            FileSystem fileSystem = ctx.vertx().fileSystem();
-            fileSystem.exists(uploadedFileName, existResult -> {
-                if (existResult.failed()) {
-                    it.remove();
-                    logger.warn("Could not detect if image exists, not deleting: " + uploadedFileName, existResult.cause());
-                } else if (existResult.result()) {
-                    fileSystem.delete(uploadedFileName, deleteResult -> {
-                        if (deleteResult.failed()) {
-                            logger.warn("Deleting image failed: " + uploadedFileName, deleteResult.cause());
-                            return;
-                        }
+                FileSystem fileSystem = ctx.vertx().fileSystem();
+                fileSystem.exists(uploadedFileName, existResult -> {
+                    if (existResult.failed()) {
                         it.remove();
-                    });
-                }
-            });
-        }
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.CREATED.getCode())
-                .end(Json.encodePrettily(new_files));
+                        logger.warn("Could not detect if image exists, not deleting: " + uploadedFileName, existResult.cause());
+                    } else if (existResult.result()) {
+                        fileSystem.delete(uploadedFileName, deleteResult -> {
+                            if (deleteResult.failed()) {
+                                logger.warn("Deleting image failed: " + uploadedFileName, deleteResult.cause());
+                                return;
+                            }
+                            it.remove();
+                        });
+                    }
+                });
+            }
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                    .end(Json.encodePrettily(new_files));
+        }, false, null);
+
     }
 
     private BufferedImage resizeImage(BufferedImage image, int width, int height) {

@@ -40,7 +40,8 @@ public class RestAPIVerticle extends AbstractVerticle {
                 System.getProperty("basedir") + "/" + System.getProperty("image.dir")));
 
         //TODO: change to clustered session
-        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+        // session timeout 10 min
+        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)).setSessionTimeout(600000));
 
 
         PostService postService = new PostService(new ElasticSearchInterfaceImpl());
@@ -105,7 +106,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         // uploadForm
         router.post("/api/upload/*").handler(RedirectAuthHandler.create(authProvider, loginPage).addAuthority("role:User"));
 
-        // createAdminAccount, default admin is admin@zabo.com, can only logged in admin can create a new admin account
+        // createAdminAccount, default admin is admin@zabo.com, can only logged in admin create a new admin account
         router.post("/api/admin/accounts").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:Admin"));
 
         // Handle the user login

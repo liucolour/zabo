@@ -47,6 +47,7 @@ public class Main {
         logger.debug("Base dir is {}", System.getProperty("basedir"));
 
         Vertx vertx = Vertx.vertx();
+
         vertx.deployVerticle("com.zabo.verticles.RestAPIVerticle");
         logger.info("Main is started");
 
@@ -62,7 +63,7 @@ public class Main {
                     latch.countDown();
                 });
                 try {
-                    if (!latch.await(2, TimeUnit.MINUTES)) {
+                    if (!latch.await(1, TimeUnit.MINUTES)) {
                         logger.error("Timed out waiting to undeploy all");
                     }
                 } catch (InterruptedException e) {

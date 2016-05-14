@@ -78,25 +78,28 @@ public class AccountService {
     }
 
     private void createAccountWithRole(RoutingContext ctx, Role role) {
-        JsonObject json_param = ctx.getBodyAsJson();
-        String username = json_param.getString("username");
-        String password = json_param.getString("password");
+        ctx.vertx().executeBlocking(fut -> {
+            JsonObject json_param = ctx.getBodyAsJson();
+            String username = json_param.getString("username");
+            String password = json_param.getString("password");
 
-        JsonObject newAccount = createAccount(username, password, role);
+            JsonObject newAccount = createAccount(username, password, role);
 
-        // createAccount return only id for successfully write
-        // but returning a whole account field means existed
-        if(!Utils.ifStringEmpty(newAccount.getString("username"))) {
-            ctx.fail(HttpResponseStatus.CONFLICT.getCode());
-            return;
-        }
+            // createAccount return only id for successfully write
+            // but returning a whole account field means existed
+            if(!Utils.ifStringEmpty(newAccount.getString("username"))) {
+                ctx.fail(HttpResponseStatus.CONFLICT.getCode());
+                return;
+            }
 
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.CREATED.getCode())
-                .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Created account for username : " + username +
-                        " with role : " + role.toString() +
-                        " and id : " + newAccount.getString("id"));
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.CREATED.getCode())
+                    .putHeader("content-type", "application/text; charset=utf-8")
+                    .end("Created account for username : " + username +
+                            " with role : " + role.toString() +
+                            " and id : " + newAccount.getString("id"));
+        }, false, null);
+
     }
 
     public JsonObject createAccount(String username, String password, Role role){
@@ -124,209 +127,220 @@ public class AccountService {
     }
 
     public void deleteAccount(RoutingContext ctx) {
-        User ctxUser = ctx.user();
+        ctx.vertx().executeBlocking(fut -> {
+            User ctxUser = ctx.user();
 
-        String contextUser = ctxUser.principal().getString("username");
+            String contextUser = ctxUser.principal().getString("username");
 
-        ctxUser.isAuthorised("role:User", res -> {
-            if(res.succeeded()){
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    JsonObject user_db = getUserAccountFromDB(contextUser);
-                    if(user_db == null) {
-                        logger.error("Couldn't find username " + contextUser);
-                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
-                    }
+            ctxUser.isAuthorised("role:User", res -> {
+                if(res.succeeded()){
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        JsonObject user_db = getUserAccountFromDB(contextUser);
+                        if(user_db == null) {
+                            logger.error("Couldn't find username " + contextUser);
+                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                            return;
+                        }
 
-                    JsonObject json_input = new JsonObject();
-                    json_input.put("id", user_db.getString("id"));
-                    json_input.put("ESDataType", ESDataType.Account.toString());
-                    dbInterface.delete(json_input);
-                    //log out
-                    ctx.clearUser();
-
-                    ctx.response()
-                            .setStatusCode(HttpResponseStatus.OK.getCode())
-                            .putHeader("content-type", "application/text; charset=utf-8")
-                            .end("Deleted account of username : " + user_db.getString("username"));
-
-                }
-            }
-        });
-
-        ctxUser.isAuthorised("role:Admin", res -> {
-            if(res.succeeded()) {
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    String username_input = contextUser;
-                    try {
-                        username_input = ctx.getBodyAsJson().getString("username");
-                    } catch (DecodeException e) {
-                        //ignore
-                    }
-
-                    JsonObject user_db;
-
-                    // get own account
-                    if (contextUser.equals(username_input)) {
-                        user_db = getUserAccountFromDB(contextUser);
-                        // log out
+                        JsonObject json_input = new JsonObject();
+                        json_input.put("id", user_db.getString("id"));
+                        json_input.put("ESDataType", ESDataType.Account.toString());
+                        dbInterface.delete(json_input);
+                        //log out
                         ctx.clearUser();
-                    } else {
-                        // get other user account
-                        user_db = getUserAccountFromDB(username_input);
+
+                        ctx.response()
+                                .setStatusCode(HttpResponseStatus.OK.getCode())
+                                .putHeader("content-type", "application/text; charset=utf-8")
+                                .end("Deleted account of username : " + user_db.getString("username"));
                     }
-
-                    if(user_db == null) {
-                        logger.error("Couldn't find username " + username_input);
-                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
-                    }
-
-                    JsonObject json_input = new JsonObject();
-                    json_input.put("id", user_db.getString("id"));
-                    json_input.put("ESDataType", ESDataType.Account.toString());
-                    dbInterface.delete(json_input);
-
-                    ctx.response()
-                            .setStatusCode(HttpResponseStatus.OK.getCode())
-                            .putHeader("content-type", "application/text; charset=utf-8")
-                            .end("Deleted account of username : " + user_db.getString("username"));
                 }
-            }
-        });
+            });
+
+            ctxUser.isAuthorised("role:Admin", res -> {
+                if(res.succeeded()) {
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        String username_input = contextUser;
+                        try {
+                            username_input = ctx.getBodyAsJson().getString("username");
+                        } catch (DecodeException e) {
+                            //ignore
+                        }
+
+                        JsonObject user_db;
+
+                        // get own account
+                        if (contextUser.equals(username_input)) {
+                            user_db = getUserAccountFromDB(contextUser);
+                            // log out
+                            ctx.clearUser();
+                        } else {
+                            // get other user account
+                            user_db = getUserAccountFromDB(username_input);
+                        }
+
+                        if(user_db == null) {
+                            logger.error("Couldn't find username " + username_input);
+                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                            return;
+                        }
+
+                        JsonObject json_input = new JsonObject();
+                        json_input.put("id", user_db.getString("id"));
+                        json_input.put("ESDataType", ESDataType.Account.toString());
+                        dbInterface.delete(json_input);
+
+                        ctx.response()
+                                .setStatusCode(HttpResponseStatus.OK.getCode())
+                                .putHeader("content-type", "application/text; charset=utf-8")
+                                .end("Deleted account of username : " + user_db.getString("username"));
+                    }
+                }
+            });
+        }, false, null);
+
     }
 
     public  void updateAccountPassword(RoutingContext ctx) {
-        String password = ctx.request().formAttributes().get("password");
+        ctx.vertx().executeBlocking(fut -> {
+            String password = ctx.request().formAttributes().get("password");
 
-        if(password == null || password.equals("")){
-            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-            return;
-        }
-        // Only current user can update his/her own account
-        String contextUser = ctx.user().principal().getString("username");
+            if(password == null || password.equals("")){
+                ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+                return;
+            }
+            // Only current user can update his/her own account
+            String contextUser = ctx.user().principal().getString("username");
 
-        JsonObject user_db = getUserAccountFromDB(contextUser);
+            JsonObject user_db = getUserAccountFromDB(contextUser);
 
-        if(user_db == null) {
-            logger.error("Couldn't find username " + contextUser);
-            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-            return;
-        }
+            if(user_db == null) {
+                logger.error("Couldn't find username " + contextUser);
+                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                return;
+            }
 
-        RandomNumberGenerator rng = new SecureRandomNumberGenerator();
-        ByteSource salt = rng.nextBytes();
+            RandomNumberGenerator rng = new SecureRandomNumberGenerator();
+            ByteSource salt = rng.nextBytes();
 
-        //TODO: add iteration
-        String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
+            //TODO: add iteration
+            String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
 
-        JsonObject json_input = user_db.copy();
-        json_input.put("password",hashedPasswordBase64);
-        json_input.put("salt",salt.toBase64());
-        json_input.put("hash_algo",Sha512Hash.ALGORITHM_NAME);
+            JsonObject json_input = user_db.copy();
+            json_input.put("password",hashedPasswordBase64);
+            json_input.put("salt",salt.toBase64());
+            json_input.put("hash_algo",Sha512Hash.ALGORITHM_NAME);
 
-        json_input.put("ESDataType", ESDataType.Account.toString());
+            json_input.put("ESDataType", ESDataType.Account.toString());
 
-        dbInterface.update(json_input);
+            dbInterface.update(json_input);
 
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated password for username : " + contextUser);
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/text; charset=utf-8")
+                    .end("Updated password for username : " + contextUser);
+        }, false, null);
+
     }
 
     public void updateAccountProfile(RoutingContext ctx) {
-        String body = ctx.getBodyAsString();
-        JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
+        ctx.vertx().executeBlocking(fut -> {
+            String body = ctx.getBodyAsString();
+            JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
 
-        try {
-            Json.decodeValue(body, UserAccount.class);
-        } catch (Exception e){
-            logger.error(e);
-            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-            return;
-        }
+            try {
+                Json.decodeValue(body, UserAccount.class);
+            } catch (Exception e){
+                logger.error(e);
+                ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+                return;
+            }
 
-        // Only current user can update his/her own account
-        String contextUser = ctx.user().principal().getString("username");
+            // Only current user can update his/her own account
+            String contextUser = ctx.user().principal().getString("username");
 
-        JsonObject user_db = getUserAccountFromDB(contextUser);
+            JsonObject user_db = getUserAccountFromDB(contextUser);
 
-        if(user_db == null) {
-            logger.error("Couldn't find username " + contextUser);
-            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-            return;
-        }
+            if(user_db == null) {
+                logger.error("Couldn't find username " + contextUser);
+                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                return;
+            }
 
-        json_input.put("id", user_db.getString("id"));
-        json_input.put("ESDataType", ESDataType.Account.toString());
+            json_input.put("id", user_db.getString("id"));
+            json_input.put("ESDataType", ESDataType.Account.toString());
 
-        dbInterface.update(json_input);
+            dbInterface.update(json_input);
 
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/text; charset=utf-8")
-                .end("Updated profile for username : " + contextUser);
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/text; charset=utf-8")
+                    .end("Updated profile for username : " + contextUser);
+        }, false, null);
+
     }
 
     public void getAccount(RoutingContext ctx) {
-        User ctxUser = ctx.user();
-        String contextUser = ctxUser.principal().getString("username");
+        ctx.vertx().executeBlocking(fut -> {
+            User ctxUser = ctx.user();
+            String contextUser = ctxUser.principal().getString("username");
 
-        ctxUser.isAuthorised("role:User", res -> {
-            if(res.succeeded()){
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    JsonObject user_db = getUserAccountFromDB(contextUser);
-                    if(user_db == null) {
-                        logger.error("Couldn't find username " + contextUser);
-                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
+            ctxUser.isAuthorised("role:User", res -> {
+                if(res.succeeded()){
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        JsonObject user_db = getUserAccountFromDB(contextUser);
+                        if(user_db == null) {
+                            logger.error("Couldn't find username " + contextUser);
+                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                            return;
+                        }
+                        removeSensitiveAccountInfo(user_db);
+                        ctx.response()
+                                .setStatusCode(HttpResponseStatus.OK.getCode())
+                                .putHeader("content-type", "application/json; charset=utf-8")
+                                .end(user_db.encodePrettily());
                     }
-                    removeSensitiveAccountInfo(user_db);
-                    ctx.response()
-                            .setStatusCode(HttpResponseStatus.OK.getCode())
-                            .putHeader("content-type", "application/json; charset=utf-8")
-                            .end(user_db.encodePrettily());
                 }
-            }
-        });
+            });
 
-        ctxUser.isAuthorised("role:Admin", res -> {
-            if(res.succeeded()) {
-                boolean hasRole = res.result();
-                if(hasRole) {
-                    String username_input = null;
-                    try {
-                        username_input = ctx.getBodyAsJson().getString("username");
-                    } catch (DecodeException e) {
-                        //ignore
+            ctxUser.isAuthorised("role:Admin", res -> {
+                if(res.succeeded()) {
+                    boolean hasRole = res.result();
+                    if(hasRole) {
+                        String username_input = null;
+                        try {
+                            username_input = ctx.getBodyAsJson().getString("username");
+                        } catch (DecodeException e) {
+                            //ignore
+                        }
+
+                        JsonObject user_db;
+
+                        // get own account
+                        if (username_input == null || contextUser.equals(username_input))
+                            user_db = getUserAccountFromDB(contextUser);
+                        else
+                            // get other user account
+                            user_db = getUserAccountFromDB(username_input);
+
+                        if(user_db == null) {
+                            logger.error("Couldn't find username " + contextUser);
+                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                            return;
+                        }
+                        removeSensitiveAccountInfo(user_db);
+                        ctx.response()
+                                .setStatusCode(HttpResponseStatus.OK.getCode())
+                                .putHeader("content-type", "application/json; charset=utf-8")
+                                .end(user_db.encodePrettily());
                     }
-
-                    JsonObject user_db;
-
-                    // get own account
-                    if (username_input == null || contextUser.equals(username_input))
-                        user_db = getUserAccountFromDB(contextUser);
-                    else
-                        // get other user account
-                        user_db = getUserAccountFromDB(username_input);
-
-                    if(user_db == null) {
-                        logger.error("Couldn't find username " + contextUser);
-                        ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                        return;
-                    }
-                    removeSensitiveAccountInfo(user_db);
-                    ctx.response()
-                            .setStatusCode(HttpResponseStatus.OK.getCode())
-                            .putHeader("content-type", "application/json; charset=utf-8")
-                            .end(user_db.encodePrettily());
                 }
-            }
-        });
+            });
+        }, false, null);
+
     }
 
     private  void removeSensitiveAccountInfo(JsonObject userAccount) {
@@ -337,29 +351,36 @@ public class AccountService {
     }
 
     public void getAllAccountsByRole(RoutingContext ctx){
-        String role = ctx.request().getParam("role");
-        String body = ctx.getBodyAsString(); // {"from": 21, "size": 20}
+        ctx.vertx().executeBlocking(fut -> {
+            String role = ctx.request().getParam("role");
+            String body = ctx.getBodyAsString(); // {"from": 21, "size": 20}
 
-        if(role == null){
-            ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
-            return;
-        }
+            if(role == null){
+                ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+                return;
+            }
 
-        String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role);
+            String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role);
 
-        JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
-        json_input.put("query", new JsonObject(queryRoleStatement));
-        json_input.put("ESDataType", ESDataType.Account.toString());
+            JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
+            json_input.put("query", new JsonObject(queryRoleStatement));
+            json_input.put("ESDataType", ESDataType.Account.toString());
 
-        JsonArray result = dbInterface.query(json_input);
+            JsonArray result = dbInterface.query(json_input);
 
-        List<JsonObject> accounts_json = result.getList();
+            if(result == null){
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+                return;
+            }
+            List<JsonObject> accounts_json = result.getList();
 
-        accounts_json.stream().forEach(this::removeSensitiveAccountInfo);
+            accounts_json.stream().forEach(this::removeSensitiveAccountInfo);
 
-        ctx.response()
-                .setStatusCode(HttpResponseStatus.OK.getCode())
-                .putHeader("content-type", "application/json; charset=utf-8")
-                .end(result.encodePrettily());
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/json; charset=utf-8")
+                    .end(result.encodePrettily());
+        }, false, null);
+
     }
 }
