@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 //TODO: Anonymous email
 //TODO: HTTPS
 //TODO: Daemon application
+//TODO: cache
+//TODO: Jmeter
 //TODO: Exception
 //TODO: spring
 //TODO: super admin?

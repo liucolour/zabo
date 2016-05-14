@@ -283,10 +283,10 @@ public class PostService {
 
                 String big_file_name = uploadedFileName + "_b.jpg";
                 String small_file_name = uploadedFileName + "_s.jpg";
-                int big_width = Utils.getPropertyInt("image.big.width", 600);
-                int big_height = Utils.getPropertyInt("image.big.height", 450);
-                int small_width = Utils.getPropertyInt("image.small.width", 50);
-                int small_height = Utils.getPropertyInt("image.small.height", 50);
+                int big_width_max = Utils.getPropertyInt("image.big.width", 600);
+                int big_height_max = Utils.getPropertyInt("image.big.height", 450);
+                int small_width_max = Utils.getPropertyInt("image.small.width", 50);
+                int small_height_max = Utils.getPropertyInt("image.small.height", 50);
 
                 //TODO: file reupload to s3
                 try {
@@ -301,10 +301,11 @@ public class PostService {
                         original_image = pngBufferedImage;
 
                     }
-                    BufferedImage resized_image_big = resizeImage(original_image, big_width, big_height);
+
+                    BufferedImage resized_image_big = resizeImage(original_image, big_width_max, big_height_max);
                     ImageIO.write(resized_image_big, "jpg", new File(big_file_name));
 
-                    BufferedImage resized_image_small = resizeImage(original_image, small_width, small_height);
+                    BufferedImage resized_image_small = resizeImage(original_image, small_width_max, small_height_max);
                     ImageIO.write(resized_image_small, "jpg", new File(small_file_name));
                     new_files.add(uploadedFileName);
                 } catch (IOException e) {
@@ -334,12 +335,32 @@ public class PostService {
 
     }
 
-    private BufferedImage resizeImage(BufferedImage image, int width, int height) {
+    private BufferedImage resizeImage(BufferedImage image, int width_max, int height_max) {
 
-        BufferedImage resizedImage = new BufferedImage(width, height,
+        int original_width = image.getWidth();
+        int original_height = image.getHeight();
+        if(original_width <= width_max && original_height <= height_max)
+            return image;
+
+        double ratio = 1.0 * original_width / original_height;
+
+        int new_width = original_width;
+        int new_height = original_height;
+
+        if(new_width > width_max){
+            new_width = width_max;
+            new_height = (int)(width_max/ratio);
+        }
+
+        if(new_height > height_max){
+            new_width = (int)(height_max*ratio);
+            new_height = height_max;
+        }
+
+        BufferedImage resizedImage = new BufferedImage(new_width, new_height,
                                         image.getType()==0? BufferedImage.TYPE_INT_ARGB : image.getType());
         Graphics2D g = resizedImage.createGraphics();
-        g.drawImage(image, 0, 0, width, height, null);
+        g.drawImage(image, 0, 0, new_width, new_height, null);
         g.dispose();
         g.setComposite(AlphaComposite.Src);
 

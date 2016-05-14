@@ -251,6 +251,7 @@ public class AccountService {
             JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
 
             try {
+                //validate fields
                 Json.decodeValue(body, UserAccount.class);
             } catch (Exception e){
                 logger.error(e);
