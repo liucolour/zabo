@@ -19,10 +19,10 @@ public class Post {
     private long modified_time;
     private String title;
     private String description;
-    private Location location;
     private boolean is_provider; // false is requester
     private Status status;
     private List<String> image_url_list;
+    private Location location;
 
     public String getId() {
         return id;

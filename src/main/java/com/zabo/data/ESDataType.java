@@ -8,7 +8,8 @@ public enum ESDataType {
     AllPost("post_index", ""),
     JobPost("post_index", "job"),
     CarPost("post_index", "car"),
-    Account("account_index", "account");
+    Account("account_index", "account"),
+    Message("conversation_index", "message");
 
     ESDataType(String index, String type){
         this.index = index;

@@ -1,5 +1,7 @@
 package com.zabo.account;
 
+import java.util.List;
+
 /**
  * Created by zhaoboliu on 4/27/16.
  */
@@ -13,6 +15,7 @@ public class UserAccount {
     private String hash_algo;
     private String salt;
     private long created_time;
+    private List<String> conversation_id_list;
 
     private UserProfile profile;
 

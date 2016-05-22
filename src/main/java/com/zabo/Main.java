@@ -18,8 +18,10 @@ import java.util.concurrent.TimeUnit;
 //TODO: Admin aggregation
 //TODO: Integration tests (vertx http client + Junit)
 //TODO: post auto deletion
+//TODO: multi nodes ngnix
 //TODO: Geo location search within range of miles of zipcode
 //TODO: Anonymous email
+//TODO: transaction
 //TODO: HTTPS
 //TODO: Daemon application
 //TODO: cache

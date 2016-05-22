@@ -1,6 +1,15 @@
 {
   "account": {
     "properties": {
+      "id": {
+        "type": "string",
+        "index": "not_analyzed",
+        "doc_values": false
+      },
+      "username": {
+        "type": "string",
+        "index": "not_analyzed"
+      },
       "password": {
         "type": "string",
         "index": "not_analyzed"
@@ -13,12 +22,12 @@
         "type": "string",
         "index": "not_analyzed"
       },
-      "username": {
-        "type": "string",
-        "index": "not_analyzed"
-      },
       "created_time": {
         "type": "date"
+      },
+      "conversation_id_list": {
+        "type": "string",
+        "index": "not_analyzed"
       },
       "profile": {
         "properties": {

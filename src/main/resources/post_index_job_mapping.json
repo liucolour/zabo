@@ -1,30 +1,27 @@
 {
   "job": {
     "properties": {
-      "category": {
+      "id": {
         "type": "string",
-        "index": "not_analyzed"
+        "index": "not_analyzed",
+        "doc_values": false
+      },
+      "username": {
+        "type": "string",
+        "index": "not_analyzed",
+        "doc_values": false
       },
       "created_time": {
         "type": "date"
       },
-      "description": {
+      "modified_time": {
+        "type": "date"
+      },
+      "title": {
         "type": "string"
       },
-      "duration": {
-        "properties": {
-          "number": {
-            "type": "long"
-          },
-          "unit": {
-            "type": "string",
-            "index": "not_analyzed",
-            "doc_values": false
-          }
-        }
-      },
-      "experienced_required": {
-        "type": "boolean"
+      "description": {
+        "type": "string"
       },
       "is_provider": {
         "type": "boolean"
@@ -65,27 +62,34 @@
           }
         }
       },
-      "max_pay": {
-        "type": "double"
-      },
-      "min_pay": {
-        "type": "double"
+      "category": {
+        "type": "string",
+        "index": "not_analyzed"
       },
       "mode": {
         "type": "string",
         "index": "not_analyzed"
       },
-      "modified_time": {
-        "type": "date"
-      },
-      "num_year_experience": {
-        "type": "long"
+      "duration": {
+        "properties": {
+          "number": {
+            "type": "long"
+          },
+          "unit": {
+            "type": "string",
+            "index": "not_analyzed",
+            "doc_values": false
+          }
+        }
       },
       "pay": {
         "type": "double"
       },
-      "title": {
-        "type": "string"
+      "min_pay": {
+        "type": "double"
+      },
+      "max_pay": {
+        "type": "double"
       },
       "unit": {
         "type": "string",
@@ -95,15 +99,11 @@
       "payment_method": {
         "type": "string"
       },
-      "user_id": {
-        "type": "string",
-        "index": "not_analyzed",
-        "doc_values": false
+      "experienced_required": {
+        "type": "boolean"
       },
-      "id": {
-        "type": "string",
-        "index": "not_analyzed",
-        "doc_values": false
+      "num_year_experience": {
+        "type": "long"
       }
     }
   }

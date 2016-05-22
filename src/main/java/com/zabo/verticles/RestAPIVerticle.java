@@ -3,8 +3,10 @@ package com.zabo.verticles;
 import com.zabo.account.Role;
 import com.zabo.auth.DBShiroAuthorizingRealm;
 import com.zabo.auth.RoleBasedFormLoginHandler;
+import com.zabo.data.DBInterface;
 import com.zabo.data.ElasticSearchInterfaceImpl;
 import com.zabo.services.AccountService;
+import com.zabo.services.MessageService;
 import com.zabo.services.PostService;
 import com.zabo.utils.Utils;
 import io.vertx.core.AbstractVerticle;
@@ -44,8 +46,11 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)).setSessionTimeout(600000));
 
 
-        PostService postService = new PostService(new ElasticSearchInterfaceImpl());
-        AccountService accountService = new AccountService(new ElasticSearchInterfaceImpl());
+        DBInterface dbInterface = new ElasticSearchInterfaceImpl();
+
+        PostService postService = new PostService(dbInterface);
+        AccountService accountService = new AccountService(dbInterface);
+        MessageService messageService = new MessageService(dbInterface, accountService);
 
         accountService.createAccount(System.getProperty("admin.default.username"),
                                      System.getProperty("admin.default.password"),
@@ -109,13 +114,16 @@ public class RestAPIVerticle extends AbstractVerticle {
         // createAdminAccount, default admin is admin@zabo.com, can only logged in admin create a new admin account
         router.post("/api/admin/accounts").handler(RedirectAuthHandler.create(authProvider, adminLoginPage).addAuthority("role:Admin"));
 
+        // createConversation
+        router.post("/api/conversations").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
         // Handle the user login
-        router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:User")
+        router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:User", accountService)
                 .setDirectLoggedInOKURL("/index.html")
                 .setReturnURLParam(null));
 
         // Handle the admin login
-        router.route("/api/admin/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:Admin")
+        router.route("/api/admin/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:Admin", accountService)
                 .setDirectLoggedInOKURL("/admin.html")
                 .setReturnURLParam(null));
 
@@ -134,14 +142,15 @@ public class RestAPIVerticle extends AbstractVerticle {
 
         router.post("/api/admin/accounts").handler(accountService::createAdminAccount);
 
+        router.post("/api/conversations").handler(messageService::createConversation);
+
         router.route().handler(StaticHandler
                 .create()
                 .setAllowRootFileSystemAccess(true)
                 .setWebRoot(System.getProperty("basedir") + "/webroot"));
 
         Integer port = Utils.getPropertyInt("http.port", 8080);
-        if(port == null)
-            return;
+
         vertx
             .createHttpServer()
             .requestHandler(router::accept)

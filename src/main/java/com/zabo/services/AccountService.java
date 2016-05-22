@@ -25,6 +25,7 @@ import java.util.List;
 /**
  * Created by zhaoboliu on 4/27/16.
  */
+
 /**
  * Test Cases:
  * . User Account can't login admin page
@@ -43,7 +44,7 @@ public class AccountService {
 
     private DBInterface dbInterface;
 
-    public AccountService(DBInterface dbInterface){
+    public AccountService(DBInterface dbInterface) {
         this.dbInterface = dbInterface;
     }
 
@@ -55,7 +56,7 @@ public class AccountService {
         createAccountWithRole(ctx, Role.Admin);
     }
 
-    public JsonObject getUserAccountFromDB(String username){
+    public JsonObject getUserAccountFromDBByUsername(String username) {
         String queryUserStatement = String.format(System.getProperty("query.user.statement"), username);
 
         JsonObject json_input = new JsonObject();
@@ -64,17 +65,25 @@ public class AccountService {
 
         JsonArray userAccounts = dbInterface.query(json_input);
 
-        if(userAccounts == null || userAccounts.size() == 0) {
+        if (userAccounts == null || userAccounts.size() == 0) {
             logger.warn("No account found for user " + username);
             return null;
         }
 
-        if(userAccounts.size() > 1){
+        if (userAccounts.size() > 1) {
             logger.warn("More than one user found for user " + username);
             throw new RuntimeException("More than one user found for user " + username);
         }
 
         return userAccounts.getJsonObject(0);
+    }
+
+    public JsonObject getUserAccountFromDBByUserid(String id) {
+        JsonObject json_input = new JsonObject();
+        json_input.put("id", id);
+        json_input.put("ESDataType", ESDataType.Account.toString());
+
+        return dbInterface.read(json_input);
     }
 
     private void createAccountWithRole(RoutingContext ctx, Role role) {
@@ -87,7 +96,7 @@ public class AccountService {
 
             // createAccount return only id for successfully write
             // but returning a whole account field means existed
-            if(!Utils.ifStringEmpty(newAccount.getString("username"))) {
+            if (!Utils.ifStringEmpty(newAccount.getString("username"))) {
                 ctx.fail(HttpResponseStatus.CONFLICT.getCode());
                 return;
             }
@@ -102,10 +111,10 @@ public class AccountService {
 
     }
 
-    public JsonObject createAccount(String username, String password, Role role){
+    public JsonObject createAccount(String username, String password, Role role) {
         // Check for existing username
-        JsonObject user_db = getUserAccountFromDB(username);
-        if(user_db != null){
+        JsonObject user_db = getUserAccountFromDBByUsername(username);
+        if (user_db != null) {
             logger.warn("Skip account creation as account existed for username " + username);
             return user_db;
         }
@@ -133,35 +142,29 @@ public class AccountService {
             String contextUser = ctxUser.principal().getString("username");
 
             ctxUser.isAuthorised("role:User", res -> {
-                if(res.succeeded()){
+                if (res.succeeded()) {
                     boolean hasRole = res.result();
-                    if(hasRole) {
-                        JsonObject user_db = getUserAccountFromDB(contextUser);
-                        if(user_db == null) {
-                            logger.error("Couldn't find username " + contextUser);
-                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                            return;
-                        }
-
+                    if (hasRole) {
                         JsonObject json_input = new JsonObject();
-                        json_input.put("id", user_db.getString("id"));
+                        json_input.put("id", (String) ctx.session().get("user_db_id"));
                         json_input.put("ESDataType", ESDataType.Account.toString());
                         dbInterface.delete(json_input);
                         //log out
                         ctx.clearUser();
 
+                        //TODO: delete all posts by this user
                         ctx.response()
                                 .setStatusCode(HttpResponseStatus.OK.getCode())
                                 .putHeader("content-type", "application/text; charset=utf-8")
-                                .end("Deleted account of username : " + user_db.getString("username"));
+                                .end("Deleted account of username : " + contextUser);
                     }
                 }
             });
 
             ctxUser.isAuthorised("role:Admin", res -> {
-                if(res.succeeded()) {
+                if (res.succeeded()) {
                     boolean hasRole = res.result();
-                    if(hasRole) {
+                    if (hasRole) {
                         String username_input = contextUser;
                         try {
                             username_input = ctx.getBodyAsJson().getString("username");
@@ -169,33 +172,32 @@ public class AccountService {
                             //ignore
                         }
 
-                        JsonObject user_db;
+                        String user_db_id = ctx.session().get("user_db_id");
 
                         // get own account
                         if (contextUser.equals(username_input)) {
-                            user_db = getUserAccountFromDB(contextUser);
                             // log out
                             ctx.clearUser();
                         } else {
                             // get other user account
-                            user_db = getUserAccountFromDB(username_input);
-                        }
-
-                        if(user_db == null) {
-                            logger.error("Couldn't find username " + username_input);
-                            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                            return;
+                            JsonObject user_db = getUserAccountFromDBByUsername(username_input);
+                            if (user_db == null) {
+                                logger.error("Couldn't find username " + username_input);
+                                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                                return;
+                            }
+                            user_db_id = user_db.getString("id");
                         }
 
                         JsonObject json_input = new JsonObject();
-                        json_input.put("id", user_db.getString("id"));
+                        json_input.put("id", user_db_id);
                         json_input.put("ESDataType", ESDataType.Account.toString());
                         dbInterface.delete(json_input);
 
                         ctx.response()
                                 .setStatusCode(HttpResponseStatus.OK.getCode())
                                 .putHeader("content-type", "application/text; charset=utf-8")
-                                .end("Deleted account of username : " + user_db.getString("username"));
+                                .end("Deleted account of username : " + username_input);
                     }
                 }
             });
@@ -203,35 +205,29 @@ public class AccountService {
 
     }
 
-    public  void updateAccountPassword(RoutingContext ctx) {
+    public void updateAccountPassword(RoutingContext ctx) {
         ctx.vertx().executeBlocking(fut -> {
             String password = ctx.request().formAttributes().get("password");
 
-            if(password == null || password.equals("")){
+            if (password == null || password.equals("")) {
                 ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
                 return;
             }
             // Only current user can update his/her own account
             String contextUser = ctx.user().principal().getString("username");
 
-            JsonObject user_db = getUserAccountFromDB(contextUser);
-
-            if(user_db == null) {
-                logger.error("Couldn't find username " + contextUser);
-                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                return;
-            }
-
             RandomNumberGenerator rng = new SecureRandomNumberGenerator();
             ByteSource salt = rng.nextBytes();
 
             //TODO: add iteration
-            String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt).toBase64();
+            String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt)
+                                                .toBase64();
 
-            JsonObject json_input = user_db.copy();
-            json_input.put("password",hashedPasswordBase64);
-            json_input.put("salt",salt.toBase64());
-            json_input.put("hash_algo",Sha512Hash.ALGORITHM_NAME);
+            JsonObject json_input = new JsonObject();
+            json_input.put("id", (String) ctx.session().get("user_db_id"));
+            json_input.put("password", hashedPasswordBase64);
+            json_input.put("salt", salt.toBase64());
+            json_input.put("hash_algo", Sha512Hash.ALGORITHM_NAME);
 
             json_input.put("ESDataType", ESDataType.Account.toString());
 
@@ -248,12 +244,12 @@ public class AccountService {
     public void updateAccountProfile(RoutingContext ctx) {
         ctx.vertx().executeBlocking(fut -> {
             String body = ctx.getBodyAsString();
-            JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
+            JsonObject json_input = Utils.ifStringEmpty(body) ? new JsonObject() : new JsonObject(body);
 
             try {
                 //validate fields
                 Json.decodeValue(body, UserAccount.class);
-            } catch (Exception e){
+            } catch (Exception e) {
                 logger.error(e);
                 ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
                 return;
@@ -262,15 +258,7 @@ public class AccountService {
             // Only current user can update his/her own account
             String contextUser = ctx.user().principal().getString("username");
 
-            JsonObject user_db = getUserAccountFromDB(contextUser);
-
-            if(user_db == null) {
-                logger.error("Couldn't find username " + contextUser);
-                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
-                return;
-            }
-
-            json_input.put("id", user_db.getString("id"));
+            json_input.put("id", (String) ctx.session().get("user_db_id"));
             json_input.put("ESDataType", ESDataType.Account.toString());
 
             dbInterface.update(json_input);
@@ -280,7 +268,6 @@ public class AccountService {
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Updated profile for username : " + contextUser);
         }, false, null);
-
     }
 
     public void getAccount(RoutingContext ctx) {
@@ -289,11 +276,11 @@ public class AccountService {
             String contextUser = ctxUser.principal().getString("username");
 
             ctxUser.isAuthorised("role:User", res -> {
-                if(res.succeeded()){
+                if (res.succeeded()) {
                     boolean hasRole = res.result();
-                    if(hasRole) {
-                        JsonObject user_db = getUserAccountFromDB(contextUser);
-                        if(user_db == null) {
+                    if (hasRole) {
+                        JsonObject user_db = getUserAccountFromDBByUserid(ctx.session().get("user_db_id"));
+                        if (user_db == null) {
                             logger.error("Couldn't find username " + contextUser);
                             ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                             return;
@@ -308,10 +295,10 @@ public class AccountService {
             });
 
             ctxUser.isAuthorised("role:Admin", res -> {
-                if(res.succeeded()) {
+                if (res.succeeded()) {
                     boolean hasRole = res.result();
-                    if(hasRole) {
-                        String username_input = null;
+                    if (hasRole) {
+                        String username_input = contextUser;
                         try {
                             username_input = ctx.getBodyAsJson().getString("username");
                         } catch (DecodeException e) {
@@ -321,13 +308,13 @@ public class AccountService {
                         JsonObject user_db;
 
                         // get own account
-                        if (username_input == null || contextUser.equals(username_input))
-                            user_db = getUserAccountFromDB(contextUser);
+                        if (contextUser.equals(username_input))
+                            user_db = getUserAccountFromDBByUserid(ctx.session().get("user_db_id"));
                         else
                             // get other user account
-                            user_db = getUserAccountFromDB(username_input);
+                            user_db = getUserAccountFromDBByUsername(username_input);
 
-                        if(user_db == null) {
+                        if (user_db == null) {
                             logger.error("Couldn't find username " + contextUser);
                             ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
                             return;
@@ -344,32 +331,32 @@ public class AccountService {
 
     }
 
-    private  void removeSensitiveAccountInfo(JsonObject userAccount) {
+    private void removeSensitiveAccountInfo(JsonObject userAccount) {
         userAccount.remove("password");
         userAccount.remove("salt");
         userAccount.remove("hash_algo");
         userAccount.remove("permission");
     }
 
-    public void getAllAccountsByRole(RoutingContext ctx){
+    public void getAllAccountsByRole(RoutingContext ctx) {
         ctx.vertx().executeBlocking(fut -> {
             String role = ctx.request().getParam("role");
             String body = ctx.getBodyAsString(); // {"from": 21, "size": 20}
 
-            if(role == null){
+            if (role == null) {
                 ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
                 return;
             }
 
             String queryRoleStatement = String.format(System.getProperty("query.role.statement"), role);
 
-            JsonObject json_input = Utils.ifStringEmpty(body)? new JsonObject() : new JsonObject(body);
+            JsonObject json_input = Utils.ifStringEmpty(body) ? new JsonObject() : new JsonObject(body);
             json_input.put("query", new JsonObject(queryRoleStatement));
             json_input.put("ESDataType", ESDataType.Account.toString());
 
             JsonArray result = dbInterface.query(json_input);
 
-            if(result == null){
+            if (result == null) {
                 ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
                 return;
             }
@@ -382,6 +369,32 @@ public class AccountService {
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(result.encodePrettily());
         }, false, null);
+    }
 
+    public void updateAccountConversationList(RoutingContext ctx, List<String> user_list, String conversation_id) {
+
+        for (String username : user_list) {
+            String user_id;
+            if (username.equals(ctx.user().principal().getString("username")))
+                user_id = ctx.session().get("user_db_id");
+            else {
+                JsonObject user_db = getUserAccountFromDBByUsername(username);
+                if(user_db == null){
+                    logger.error("Couldn't find username " + username);
+                    ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
+                    return;
+                }
+                user_id = user_db.getString("id");
+            }
+
+            JsonObject json = new JsonObject();
+            json.put("id", user_id);
+            json.put("ESDataType", ESDataType.Account.toString());
+            json.put("script", System.getProperty("append.conversation.script"));
+            JsonObject jsonMap = new JsonObject();
+            jsonMap.put("conversation_id", conversation_id);
+            json.put("params", jsonMap);
+            dbInterface.update(json);
+        }
     }
 }

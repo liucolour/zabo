@@ -1,5 +1,6 @@
 package com.zabo.auth;
 
+import com.zabo.services.AccountService;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpMethod;
@@ -35,6 +36,7 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
     String DEFAULT_RETURN_URL_PARAM = "return_url";
 
     private final AuthProvider authProvider;
+    private final AccountService accountService;
 
     private String usernameParam = DEFAULT_USERNAME_PARAM;
     private String passwordParam = DEFAULT_PASSWORD_PARAM;
@@ -42,9 +44,10 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
     private String directLoggedInOKURL;
     private String requiredRole; //shiro role format: role:Admin
 
-    public RoleBasedFormLoginHandler(AuthProvider authProvider, String role) {
+    public RoleBasedFormLoginHandler(AuthProvider authProvider, String role, AccountService accountService) {
         this.authProvider = authProvider;
         this.requiredRole = role;
+        this.accountService = accountService;
     }
 
     public RoleBasedFormLoginHandler setUsernameParam(String usernameParam) {
@@ -101,6 +104,8 @@ public class RoleBasedFormLoginHandler implements Handler<RoutingContext> {
                         boolean hasRole = authzRes.result();
                         if (hasRole) {
                             if (session != null) {
+                                JsonObject account = accountService.getUserAccountFromDBByUsername(username);
+                                session.put("user_db_id", account.getString("id"));
                                 String returnURL = session.remove(returnURLParam);
                                 if (returnURL != null) {
                                     // Now redirect back to the original url

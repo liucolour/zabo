@@ -11,12 +11,15 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequestBuilder;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.index.engine.DocumentMissingException;
 import org.elasticsearch.indices.IndexAlreadyExistsException;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.IOException;
@@ -25,6 +28,7 @@ import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by zhaoboliu on 3/30/16.
@@ -96,7 +100,11 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         return jsonRes;
     }
 
+    //TODO: implement bulkWrite and bulkDelete
     public List<String> bulkWrite(List<JsonObject> list) {
+        return null;
+    }
+    public List<String> bulkDelete(List<JsonObject> list) {
         return null;
     }
 
@@ -137,9 +145,18 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         if(Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
-        client.prepareUpdate(index, type, id)
-                .setDoc(jsonObject.encode())
-                .get();
+        String script = jsonObject.getString("script");
+        JsonObject params =  jsonObject.getJsonObject("params");
+        Map<String, Object> map = null;
+        if(params != null)
+            map = params.getMap();
+
+        UpdateRequestBuilder request = client.prepareUpdate(index, type, id);
+        if(!Utils.ifStringEmpty(script))
+            request.setScript(new Script(script, ScriptService.ScriptType.INLINE, null, map));
+        else
+            request.setDoc(jsonObject.encode());
+        request.setRetryOnConflict(3).get();
     }
 
     public void delete(JsonObject jsonObject) {
