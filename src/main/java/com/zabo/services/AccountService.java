@@ -20,7 +20,9 @@ import org.apache.shiro.crypto.hash.SimpleHash;
 import org.apache.shiro.util.ByteSource;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by zhaoboliu on 4/27/16.
@@ -221,7 +223,7 @@ public class AccountService {
 
             //TODO: add iteration
             String hashedPasswordBase64 = new SimpleHash(Sha512Hash.ALGORITHM_NAME, password.toCharArray(), salt)
-                                                .toBase64();
+                    .toBase64();
 
             JsonObject json_input = new JsonObject();
             json_input.put("id", (String) ctx.session().get("user_db_id"));
@@ -360,6 +362,8 @@ public class AccountService {
                 ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
                 return;
             }
+
+            @SuppressWarnings("unchecked")
             List<JsonObject> accounts_json = result.getList();
 
             accounts_json.stream().forEach(this::removeSensitiveAccountInfo);
@@ -375,11 +379,15 @@ public class AccountService {
 
         for (String username : user_list) {
             String user_id;
-            if (username.equals(ctx.user().principal().getString("username")))
+            int amount_read = 0;
+            boolean has_new = true;
+            if (username.equals(ctx.user().principal().getString("username"))) {
                 user_id = ctx.session().get("user_db_id");
-            else {
+                amount_read = 1;
+                has_new = false;
+            } else {
                 JsonObject user_db = getUserAccountFromDBByUsername(username);
-                if(user_db == null){
+                if (user_db == null) {
                     logger.error("Couldn't find username " + username);
                     ctx.fail(HttpResponseStatus.BAD_REQUEST.getCode());
                     return;
@@ -391,10 +399,18 @@ public class AccountService {
             json.put("id", user_id);
             json.put("ESDataType", ESDataType.Account.toString());
             json.put("script", System.getProperty("append.conversation.script"));
-            JsonObject jsonMap = new JsonObject();
-            jsonMap.put("conversation_id", conversation_id);
-            json.put("params", jsonMap);
+
+            Map<String, Object> chatRecord = new HashMap<>();
+            chatRecord.put("conversation_id", conversation_id);
+            chatRecord.put("has_new", has_new);
+            chatRecord.put("amount_read", amount_read);
+
+            Map<String, Object> new_chat = new HashMap<>();
+            new_chat.put("new_chat", chatRecord);
+
+            json.put("params", new_chat);
             dbInterface.update(json);
+            //TODO: send email to user
         }
     }
 }

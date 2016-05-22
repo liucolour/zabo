@@ -103,7 +103,7 @@
         "type": "boolean"
       },
       "num_year_experience": {
-        "type": "long"
+        "type": "integer"
       }
     }
   }

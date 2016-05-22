@@ -33,12 +33,12 @@ import java.util.Map;
 /**
  * Created by zhaoboliu on 3/30/16.
  */
-public class ElasticSearchInterfaceImpl implements DBInterface{
+public class ElasticSearchInterfaceImpl implements DBInterface {
     private static final Logger logger = LoggerFactory.getLogger(ElasticSearchInterfaceImpl.class.getName());
 
     private static Client client = null;
 
-    static{
+    static {
         String server = System.getProperty("es.host");
         String clusterName = System.getProperty("es.cluster.name");
         Settings settings = Settings.settingsBuilder().put("cluster.name", clusterName).build();
@@ -48,13 +48,13 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
             logger.info("ElasticSearch Transport client initialized, server={} cluster name={}", server, clusterName);
 
             // Create index and mapping
-            for(ESDataType type: ESDataType.values()) {
-                if(!type.getType().equals("")) {
+            for (ESDataType type : ESDataType.values()) {
+                if (!type.getType().equals("")) {
                     String file_name = type.getIndex() + "_" + type.getType() + "_" + "mapping.json";
-                    try(InputStream input = ElasticSearchInterfaceImpl.class
+                    try (InputStream input = ElasticSearchInterfaceImpl.class
                             .getClassLoader()
                             .getResourceAsStream(file_name)) {
-                        if(input == null)
+                        if (input == null)
                             continue;
                         String mapping = CharStreams.toString(new InputStreamReader(input, Charsets.UTF_8));
                         try {
@@ -67,13 +67,13 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
                                     type.getIndex(),
                                     type.getType(),
                                     file_name);
-                        }catch (IndexAlreadyExistsException e){
+                        } catch (IndexAlreadyExistsException e) {
                             logger.info("ElasticSearch already had index={} type={} with mapping at file {}",
                                     type.getIndex(),
                                     type.getType(),
                                     file_name);
                         }
-                    }catch (IOException ex) {
+                    } catch (IOException ex) {
                         logger.error("Failed to read file " + file_name, ex);
                     }
                 }
@@ -84,8 +84,8 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         }
     }
 
-    public JsonObject  write(JsonObject jsonObject) {
-        if(client == null){
+    public JsonObject write(JsonObject jsonObject) {
+        if (client == null) {
             throw new RuntimeException("ElasticSearch client not found");
         }
         String index = ESDataType.valueOf(jsonObject.getString("ESDataType")).getIndex();
@@ -104,12 +104,13 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
     public List<String> bulkWrite(List<JsonObject> list) {
         return null;
     }
+
     public List<String> bulkDelete(List<JsonObject> list) {
         return null;
     }
 
     public JsonObject read(JsonObject jsonObject) {
-        if(client == null){
+        if (client == null) {
             throw new RuntimeException("ElasticSearch client not found");
         }
         String index = ESDataType.valueOf(jsonObject.getString("ESDataType")).getIndex();
@@ -118,14 +119,14 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
         String id = jsonObject.getString("id");
 
-        if(Utils.ifStringEmpty(id))
+        if (Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
         GetResponse response = client.prepareGet(index, type, id)
                 .setOperationThreaded(false)
                 .get();
         String json = response.getSourceAsString();
-        if(json == null)
+        if (json == null)
             return null;
         JsonObject jsonRes = new JsonObject(json);
         jsonRes.put("id", response.getId());
@@ -133,7 +134,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
     }
 
     public void update(JsonObject jsonObject) {
-        if(client == null){
+        if (client == null) {
             throw new RuntimeException("ElasticSearch client not found");
         }
         String index = ESDataType.valueOf(jsonObject.getString("ESDataType")).getIndex();
@@ -142,17 +143,17 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
         String id = jsonObject.getString("id");
 
-        if(Utils.ifStringEmpty(id))
+        if (Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
         String script = jsonObject.getString("script");
-        JsonObject params =  jsonObject.getJsonObject("params");
+        JsonObject params = jsonObject.getJsonObject("params");
         Map<String, Object> map = null;
-        if(params != null)
+        if (params != null)
             map = params.getMap();
 
         UpdateRequestBuilder request = client.prepareUpdate(index, type, id);
-        if(!Utils.ifStringEmpty(script))
+        if (!Utils.ifStringEmpty(script))
             request.setScript(new Script(script, ScriptService.ScriptType.INLINE, null, map));
         else
             request.setDoc(jsonObject.encode());
@@ -160,7 +161,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
     }
 
     public void delete(JsonObject jsonObject) {
-        if(client == null){
+        if (client == null) {
             throw new RuntimeException("ElasticSearch client not found");
         }
         String index = ESDataType.valueOf(jsonObject.getString("ESDataType")).getIndex();
@@ -169,7 +170,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
 
         String id = jsonObject.getString("id");
 
-        if(Utils.ifStringEmpty(id))
+        if (Utils.ifStringEmpty(id))
             throw new RuntimeException("Invalid input id");
 
         try {
@@ -180,7 +181,7 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
     }
 
     public JsonArray query(JsonObject jsonObject) {
-        if(client == null){
+        if (client == null) {
             throw new RuntimeException("ElasticSearch client not found");
         }
 
@@ -193,29 +194,29 @@ public class ElasticSearchInterfaceImpl implements DBInterface{
         String from_str = jsonObject.getString("from");
         String size_str = jsonObject.getString("size");
 
-        if(Utils.ifStringEmpty(field)){
+        if (Utils.ifStringEmpty(field)) {
             field = "created_time";
         }
         String statement = query.encode();
-        if(Utils.ifStringEmpty(statement))
+        if (Utils.ifStringEmpty(statement))
             throw new RuntimeException("Invalid input statement");
 
         SearchRequestBuilder queryBuilder = client.prepareSearch(index);
 
-        if(!Utils.ifStringEmpty(type))
+        if (!Utils.ifStringEmpty(type))
             queryBuilder.setTypes(type);
 
         queryBuilder.setQuery(statement);
 
         //TODO: refactor to add sort order from input
-        if(!Utils.ifStringEmpty(field))
+        if (!Utils.ifStringEmpty(field))
             queryBuilder.addSort(field, SortOrder.DESC);
 
-        if(!Utils.ifStringEmpty(from_str)){
+        if (!Utils.ifStringEmpty(from_str)) {
             queryBuilder.setFrom(Integer.parseInt(from_str));
         }
 
-        if(!Utils.ifStringEmpty(size_str)){
+        if (!Utils.ifStringEmpty(size_str)) {
             queryBuilder.setSize(Integer.parseInt(size_str));
         }
 

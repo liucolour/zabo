@@ -1,5 +1,7 @@
 package com.zabo.account;
 
+import com.zabo.message.ChatRecord;
+
 import java.util.List;
 
 /**
@@ -15,7 +17,7 @@ public class UserAccount {
     private String hash_algo;
     private String salt;
     private long created_time;
-    private List<String> conversation_id_list;
+    private List<ChatRecord> chat_list;
 
     private UserProfile profile;
 
