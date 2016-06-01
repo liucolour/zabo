@@ -20,10 +20,7 @@ import org.apache.shiro.crypto.hash.SimpleHash;
 import org.apache.shiro.util.ByteSource;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -111,8 +108,12 @@ public class AccountService {
                     .end("Created account for username : " + username +
                             " with role : " + role.toString() +
                             " and id : " + newAccount.getString("id"));
-        }, false, null);
-
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("CreateAccountWithRole failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public JsonObject createAccount(String username, String password, Role role) {
@@ -205,8 +206,12 @@ public class AccountService {
                     }
                 }
             });
-        }, false, null);
-
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("DeleteAccount failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void updateAccountPassword(RoutingContext ctx) {
@@ -241,7 +246,12 @@ public class AccountService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Updated password for username : " + contextUser);
-        }, false, null);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("UpdateAccountPassword failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -271,7 +281,12 @@ public class AccountService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Updated profile for username : " + contextUser);
-        }, false, null);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("UpdateAccountProfile failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void getAccount(RoutingContext ctx) {
@@ -331,7 +346,12 @@ public class AccountService {
                     }
                 }
             });
-        }, false, null);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("GetAccount failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -374,7 +394,12 @@ public class AccountService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(result.encodePrettily());
-        }, false, null);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("GetAllAccountsByRole failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void updateAccountConversationList(RoutingContext ctx, List<String> user_list, String conversation_id) {
@@ -421,13 +446,12 @@ public class AccountService {
             JsonObject account = getUserAccountFromDBByUserid(ctx.session().get("user_db_id"));
             JsonArray chat_list = account.getJsonArray("chat_list");
 
-            //@SuppressWarnings("unchecked")
             List<String> id_list = chat_list.stream()
-                                                   .map(o -> {
-                                                       JsonObject ob = (JsonObject)o;
-                                                       return ob.getString("conversation_id");
-                                                   })
-                                                   .collect(Collectors.toList());
+                    .map(o -> {
+                        JsonObject ob = (JsonObject) o;
+                        return ob.getString("conversation_id");
+                    })
+                    .collect(Collectors.toList());
 
             JsonArray id_list_json = new JsonArray(id_list);
             JsonObject json_input = new JsonObject();
@@ -435,38 +459,43 @@ public class AccountService {
             json_input.put("ESDataType", ESDataType.Message.toString());
 
             JsonArray result = dbInterface.bulkRead(json_input);
-            List<JsonObject> conversation_list =  result.getList();
+            List<JsonObject> conversation_list = result.getList();
             int i = 0;
             int j = 0;
             int size_chat_record = id_list.size();
             int size_conversation_list = conversation_list.size();
             // There may be some conversation_ids missed in DB
-            while(i<size_chat_record && j<size_conversation_list){
+            while (i < size_chat_record && j < size_conversation_list) {
                 JsonObject chat = chat_list.getJsonObject(i);
                 JsonObject con = conversation_list.get(j);
 
-                if(chat.getString("conversation_id").equals(con.getString("id"))){
+                if (chat.getString("conversation_id").equals(con.getString("id"))) {
                     con.remove("messages");
                     con.remove("id");
                     con.mergeIn(chat);
                     i++;
                     j++;
-                }else
+                } else
                     i++;
             }
             ctx.response()
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(result.encodePrettily());
-        }, false, null);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("GetAccountChatList failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void updateAccountChatRecord(String user_db_id, String conversation_id, boolean has_new) {
         JsonObject account = getUserAccountFromDBByUserid(user_db_id);
         JsonArray chat_list = account.getJsonArray("chat_list");
-        for(int i=0; i<chat_list.size(); i++){
-            JsonObject ob = chat_list.getJsonObject(i);
-            if(ob.getString("conversation_id").equals(conversation_id)){
+        for (Object o : chat_list) {
+            JsonObject ob = (JsonObject) o;
+            if (ob.getString("conversation_id").equals(conversation_id)) {
                 ob.put("has_new", has_new);
             }
         }

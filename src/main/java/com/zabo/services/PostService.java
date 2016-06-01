@@ -94,7 +94,12 @@ public class PostService {
                     .setStatusCode(HttpResponseStatus.CREATED.getCode())
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(result.encodePrettily());
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("AddPost failed: ",res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -109,7 +114,12 @@ public class PostService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(Json.encodePrettily(post));
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("GetPost failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -144,7 +154,12 @@ public class PostService {
                     .setStatusCode(HttpResponseStatus.CREATED.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Updated post id " + post_db.getString("id"));
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("UpdatePost failed", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -186,8 +201,12 @@ public class PostService {
                     }
                 }
             });
-        }, false, null);
-
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("DeletePost failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     private void deleteThenResponse(RoutingContext ctx, JsonObject jsonObject){
@@ -202,7 +221,13 @@ public class PostService {
         ctx.vertx().executeBlocking(fut -> {
             JsonObject json_input = convertRequestInJsonObject(ctx);
             queryThenResponse(ctx, json_input);
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("QueryPosts failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
+
     }
 
     public void queyUserPosts(RoutingContext ctx) {
@@ -238,7 +263,12 @@ public class PostService {
                     }
                 }
             });
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("QueyUserPosts failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 
@@ -267,7 +297,12 @@ public class PostService {
                             "   <img src=/image/dab76837-69e0-4b7e-9ba2-e6476ee0b295 alt=\"\" />\n" +
                             "</div>\n"
             );
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("GetUploadUI failed", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     // TODO: refer to BodyHandlerImpl, move file upload here
@@ -331,7 +366,12 @@ public class PostService {
             ctx.response()
                     .setStatusCode(HttpResponseStatus.CREATED.getCode())
                     .end(Json.encodePrettily(new_files));
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("UploadImage failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
 
     }
 

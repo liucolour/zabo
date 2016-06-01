@@ -75,6 +75,8 @@ public class MessageService {
             if (!usernames.contains(curr_username))
                 usernames.add(curr_username);
 
+            //TODO: validate existence of username
+
             json_input.put("usernames", usernames);
             JsonObject result = dbInterface.write(json_input);
 
@@ -85,7 +87,12 @@ public class MessageService {
                     .setStatusCode(HttpResponseStatus.CREATED.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Created new conversion with id " + conversation_id);
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("CreateConversation failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void replyMessage(RoutingContext ctx) {
@@ -126,7 +133,12 @@ public class MessageService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end(curr_user + " replied to conversion id " + conversation_id);
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("ReplyMessage failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
     public void readMessages(RoutingContext ctx) {
@@ -144,7 +156,15 @@ public class MessageService {
                     .end(messages.encodePrettily());
 
             accountService.updateAccountChatRecord(user_db_id, conversation_id, false);
-        }, false, null);
+        }, false, res -> {
+            if(res.failed()) {
+                logger.error("ReadMessages failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
     }
 
+    public void deleteConversation(RoutingContext ctx) {
+
+    }
 }
