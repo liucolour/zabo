@@ -94,7 +94,10 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.put("/api/accounts/*").handler(RedirectAuthHandler.create(authProvider,loginPage));
 
         // getAllAccountsByRole
-        router.get("/api/accounts/:role").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:Admin"));
+        router.get("/api/accounts/role/:role").handler(RedirectAuthHandler.create(authProvider,loginPage).addAuthority("role:Admin"));
+
+        // getAccountChatList
+        router.get("/api/accounts/chat").handler(RedirectAuthHandler.create(authProvider,loginPage));
 
         // queyUserPosts
         router.post("/api/posts/user/*").handler(RedirectAuthHandler.create(authProvider, loginPage));
@@ -117,6 +120,12 @@ public class RestAPIVerticle extends AbstractVerticle {
         // createConversation
         router.post("/api/conversations").handler(RedirectAuthHandler.create(authProvider, loginPage));
 
+        // replyMessage
+        router.put("/api/conversations/:id").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
+        // readMessages
+        router.get("/api/conversations/:id").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
         // Handle the user login
         router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:User", accountService)
                 .setDirectLoggedInOKURL("/index.html")
@@ -138,11 +147,14 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.post("/api/accounts").handler(accountService::getAccount);
         router.put("/api/accounts/password").handler(accountService::updateAccountPassword);
         router.put("/api/accounts/profile").handler(accountService::updateAccountProfile);
-        router.get("/api/accounts/:role").handler(accountService::getAllAccountsByRole);
+        router.get("/api/accounts/role/:role").handler(accountService::getAllAccountsByRole);
+        router.get("/api/accounts/chat").handler(accountService::getAccountChatList);
 
         router.post("/api/admin/accounts").handler(accountService::createAdminAccount);
 
         router.post("/api/conversations").handler(messageService::createConversation);
+        router.put("/api/conversations/:id").handler(messageService::replyMessage);
+        router.get("/api/conversations/:id").handler(messageService::readMessages);
 
         router.route().handler(StaticHandler
                 .create()

@@ -20,9 +20,11 @@ import org.apache.shiro.crypto.hash.SimpleHash;
 import org.apache.shiro.util.ByteSource;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Created by zhaoboliu on 4/27/16.
@@ -398,7 +400,7 @@ public class AccountService {
             JsonObject json = new JsonObject();
             json.put("id", user_id);
             json.put("ESDataType", ESDataType.Account.toString());
-            json.put("script", System.getProperty("append.conversation.script"));
+            json.put("script", System.getProperty("account.conversation.script"));
 
             Map<String, Object> chatRecord = new HashMap<>();
             chatRecord.put("conversation_id", conversation_id);
@@ -413,4 +415,68 @@ public class AccountService {
             //TODO: send email to user
         }
     }
+
+    public void getAccountChatList(RoutingContext ctx) {
+        ctx.vertx().executeBlocking(fut -> {
+            JsonObject account = getUserAccountFromDBByUserid(ctx.session().get("user_db_id"));
+            JsonArray chat_list = account.getJsonArray("chat_list");
+
+            //@SuppressWarnings("unchecked")
+            List<String> id_list = chat_list.stream()
+                                                   .map(o -> {
+                                                       JsonObject ob = (JsonObject)o;
+                                                       return ob.getString("conversation_id");
+                                                   })
+                                                   .collect(Collectors.toList());
+
+            JsonArray id_list_json = new JsonArray(id_list);
+            JsonObject json_input = new JsonObject();
+            json_input.put("ids", id_list_json);
+            json_input.put("ESDataType", ESDataType.Message.toString());
+
+            JsonArray result = dbInterface.bulkRead(json_input);
+            List<JsonObject> conversation_list =  result.getList();
+            int i = 0;
+            int j = 0;
+            int size_chat_record = id_list.size();
+            int size_conversation_list = conversation_list.size();
+            // There may be some conversation_ids missed in DB
+            while(i<size_chat_record && j<size_conversation_list){
+                JsonObject chat = chat_list.getJsonObject(i);
+                JsonObject con = conversation_list.get(j);
+
+                if(chat.getString("conversation_id").equals(con.getString("id"))){
+                    con.remove("messages");
+                    con.remove("id");
+                    con.mergeIn(chat);
+                    i++;
+                    j++;
+                }else
+                    i++;
+            }
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/json; charset=utf-8")
+                    .end(result.encodePrettily());
+        }, false, null);
+    }
+
+    public void updateAccountChatRecord(String user_db_id, String conversation_id, boolean has_new) {
+        JsonObject account = getUserAccountFromDBByUserid(user_db_id);
+        JsonArray chat_list = account.getJsonArray("chat_list");
+        for(int i=0; i<chat_list.size(); i++){
+            JsonObject ob = chat_list.getJsonObject(i);
+            if(ob.getString("conversation_id").equals(conversation_id)){
+                ob.put("has_new", has_new);
+            }
+        }
+
+        JsonObject json_input = new JsonObject();
+        json_input.put("id", user_db_id);
+        json_input.put("chat_list", chat_list);
+        json_input.put("ESDataType", ESDataType.Account.toString());
+
+        dbInterface.update(json_input);
+    }
+
 }

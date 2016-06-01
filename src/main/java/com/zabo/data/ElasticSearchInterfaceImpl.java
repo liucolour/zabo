@@ -8,6 +8,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -107,6 +109,33 @@ public class ElasticSearchInterfaceImpl implements DBInterface {
 
     public List<String> bulkDelete(List<JsonObject> list) {
         return null;
+    }
+
+    public JsonArray bulkRead(JsonObject jsonObject) {
+        if (client == null) {
+            throw new RuntimeException("ElasticSearch client not found");
+        }
+        String index = ESDataType.valueOf(jsonObject.getString("ESDataType")).getIndex();
+        String type = ESDataType.valueOf(jsonObject.getString("ESDataType")).getType();
+        jsonObject.remove("ESDataType");
+
+        JsonArray ids_json = jsonObject.getJsonArray("ids");
+        List<String> ids_list = ids_json.getList();
+        MultiGetResponse multiGetItemResponses = client.prepareMultiGet()
+                .add(index, type, ids_list.toArray(new String[ids_list.size()]))
+                .get();
+
+        JsonArray result = new JsonArray();
+        for (MultiGetItemResponse itemResponse : multiGetItemResponses) {
+            GetResponse response = itemResponse.getResponse();
+            if (response.isExists()) {
+                JsonObject one = new JsonObject((response.getSourceAsString()));
+                one.put("id", response.getId());
+                result.add(one);
+            }
+        }
+
+        return result;
     }
 
     public JsonObject read(JsonObject jsonObject) {

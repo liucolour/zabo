@@ -11,6 +11,7 @@ import java.util.List;
 public interface DBInterface {
     JsonObject write(JsonObject jsonObject);
     List<String> bulkWrite(List<JsonObject> list);
+    JsonArray bulkRead(JsonObject jsonObject);
     JsonObject read(JsonObject jsonObject);
     void update(JsonObject jsonObject);
     void delete(JsonObject jsonObject);

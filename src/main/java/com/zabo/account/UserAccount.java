@@ -104,4 +104,13 @@ public class UserAccount {
     public void setCreated_time(long created_time) {
         this.created_time = created_time;
     }
+
+    //TODO: figure out why uncomment below make updateAccountConversationList failed
+//    public List<ChatRecord> getChat_list() {
+//        return chat_list;
+//    }
+//
+//    public void setChat_list(List<ChatRecord> chat_list) {
+//        this.chat_list = chat_list;
+//    }
 }
