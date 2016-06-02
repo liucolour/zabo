@@ -3,10 +3,10 @@ package com.zabo.message;
 /**
  * Created by zhaoboliu on 5/22/16.
  */
+
 public class ChatRecord {
     private String conversation_id;
-    private boolean has_new;
-    private int amount_read;
+    private long last_read_time;
 
     public String getConversation_id() {
         return conversation_id;
@@ -16,19 +16,11 @@ public class ChatRecord {
         this.conversation_id = conversation_id;
     }
 
-    public boolean getHas_new() {
-        return has_new;
+    public long getLast_read_time() {
+        return last_read_time;
     }
 
-    public void setHas_new(boolean has_new) {
-        this.has_new = has_new;
-    }
-
-    public int getAmount_read() {
-        return amount_read;
-    }
-
-    public void setAmount_read(int amount_read) {
-        this.amount_read = amount_read;
+    public void setLast_read_time(long last_read_time) {
+        this.last_read_time = last_read_time;
     }
 }

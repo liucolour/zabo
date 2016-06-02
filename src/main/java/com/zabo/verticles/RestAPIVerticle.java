@@ -126,6 +126,9 @@ public class RestAPIVerticle extends AbstractVerticle {
         // readMessages
         router.get("/api/conversations/:id").handler(RedirectAuthHandler.create(authProvider, loginPage));
 
+        // deleteConversation
+        router.delete("/api/conversations/:id").handler(RedirectAuthHandler.create(authProvider, loginPage));
+
         // Handle the user login
         router.route("/api/user/login").handler(new RoleBasedFormLoginHandler(authProvider, "role:User", accountService)
                 .setDirectLoggedInOKURL("/index.html")
@@ -155,6 +158,7 @@ public class RestAPIVerticle extends AbstractVerticle {
         router.post("/api/conversations").handler(messageService::createConversation);
         router.put("/api/conversations/:id").handler(messageService::replyMessage);
         router.get("/api/conversations/:id").handler(messageService::readMessages);
+        router.delete("/api/conversations/:id").handler(messageService::deleteConversation);
 
         router.route().handler(StaticHandler
                 .create()

@@ -181,12 +181,16 @@ public class ElasticSearchInterfaceImpl implements DBInterface {
         if (params != null)
             map = params.getMap();
 
-        UpdateRequestBuilder request = client.prepareUpdate(index, type, id);
-        if (!Utils.ifStringEmpty(script))
-            request.setScript(new Script(script, ScriptService.ScriptType.INLINE, null, map));
-        else
-            request.setDoc(jsonObject.encode());
-        request.setRetryOnConflict(3).get();
+        try {
+            UpdateRequestBuilder request = client.prepareUpdate(index, type, id);
+            if (!Utils.ifStringEmpty(script))
+                request.setScript(new Script(script, ScriptService.ScriptType.INLINE, null, map));
+            else
+                request.setDoc(jsonObject.encode());
+            request.setRetryOnConflict(3).get();
+        } catch(DocumentMissingException e){
+            //ignore
+        }
     }
 
     public void delete(JsonObject jsonObject) {

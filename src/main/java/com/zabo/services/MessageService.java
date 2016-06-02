@@ -75,8 +75,6 @@ public class MessageService {
             if (!usernames.contains(curr_username))
                 usernames.add(curr_username);
 
-            //TODO: validate existence of username
-
             json_input.put("usernames", usernames);
             JsonObject result = dbInterface.write(json_input);
 
@@ -88,7 +86,7 @@ public class MessageService {
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end("Created new conversion with id " + conversation_id);
         }, false, res -> {
-            if(res.failed()) {
+            if (res.failed()) {
                 logger.error("CreateConversation failed: ", res.cause());
                 ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             }
@@ -98,6 +96,11 @@ public class MessageService {
     public void replyMessage(RoutingContext ctx) {
         ctx.vertx().executeBlocking(fut -> {
             final String conversation_id = ctx.request().getParam("id");
+
+            if(!isAllowed(ctx, conversation_id))
+                return;
+
+            final String user_db_id = ctx.session().get("user_db_id");
 
             JsonObject body = ctx.getBodyAsJson();
             if (body == null) {
@@ -123,9 +126,9 @@ public class MessageService {
 
             Map<String, Object> new_message = new HashMap<>();
             new_message.put("new_message", message);
-            new_message.put("new_time", ts);
+            new_message.put("new_time", ts); // update field modified_time from script
 
-            json.put("script", System.getProperty("conversation.message.script"));
+            json.put("script", System.getProperty("conversation.message.add.script"));
             json.put("params", new_message);
             json.put("ESDataType", ESDataType.Message.toString());
             dbInterface.update(json);
@@ -133,8 +136,9 @@ public class MessageService {
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/text; charset=utf-8")
                     .end(curr_user + " replied to conversion id " + conversation_id);
+            accountService.updateLastMessageReadTime(user_db_id, conversation_id);
         }, false, res -> {
-            if(res.failed()) {
+            if (res.failed()) {
                 logger.error("ReplyMessage failed: ", res.cause());
                 ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             }
@@ -149,15 +153,26 @@ public class MessageService {
             json_input.put("id", conversation_id);
             json_input.put("ESDataType", ESDataType.Message.toString());
             JsonObject conversation = dbInterface.read(json_input);
+
+            if (conversation == null) {
+                ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+                return;
+            }
+
+            JsonArray users = conversation.getJsonArray("usernames");
+            if (!users.contains(ctx.user().principal().getString("username"))) {
+                ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
+                return;
+            }
             JsonArray messages = conversation.getJsonArray("messages");
             ctx.response()
                     .setStatusCode(HttpResponseStatus.OK.getCode())
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(messages.encodePrettily());
 
-            accountService.updateAccountChatRecord(user_db_id, conversation_id, false);
+            accountService.updateLastMessageReadTime(user_db_id, conversation_id);
         }, false, res -> {
-            if(res.failed()) {
+            if (res.failed()) {
                 logger.error("ReadMessages failed: ", res.cause());
                 ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
             }
@@ -165,6 +180,54 @@ public class MessageService {
     }
 
     public void deleteConversation(RoutingContext ctx) {
+        ctx.vertx().executeBlocking(fut -> {
+            final String conversation_id = ctx.request().getParam("id");
 
+            if(!isAllowed(ctx, conversation_id))
+                return;
+
+            final String user_db_id = ctx.session().get("user_db_id");
+
+            accountService.deleteChatRecord(user_db_id, conversation_id);
+            Map<String, Object> user = new HashMap<>();
+            user.put("user", ctx.user().principal().getString("username"));
+
+            JsonObject json = new JsonObject();
+            json.put("id", conversation_id);
+            // Add user name to field deleted_usernames, when deleted_usernames is full, delete conversation document
+            json.put("script", System.getProperty("conversation.remove.script"));
+            json.put("params", user);
+            json.put("ESDataType", ESDataType.Message.toString());
+            dbInterface.update(json);
+
+            ctx.response()
+                    .setStatusCode(HttpResponseStatus.OK.getCode())
+                    .putHeader("content-type", "application/text; charset=utf-8")
+                    .end("Delete conversation successfully for id " + conversation_id);
+        }, false, res -> {
+            if (res.failed()) {
+                logger.error("DeleteConversation failed: ", res.cause());
+                ctx.fail(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode());
+            }
+        });
+    }
+
+    private boolean isAllowed(RoutingContext ctx, String conversation_id){
+        JsonObject json_input = new JsonObject();
+        json_input.put("id", conversation_id);
+        json_input.put("ESDataType", ESDataType.Message.toString());
+        JsonObject conversation = dbInterface.read(json_input);
+
+        if (conversation == null) {
+            ctx.fail(HttpResponseStatus.NOT_FOUND.getCode());
+            return false;
+        }
+
+        JsonArray users = conversation.getJsonArray("usernames");
+        if (!users.contains(ctx.user().principal().getString("username"))) {
+            ctx.fail(HttpResponseStatus.FORBIDDEN.getCode());
+            return false;
+        }
+        return true;
     }
 }

@@ -19,6 +19,7 @@ import org.apache.shiro.crypto.hash.Sha512Hash;
 import org.apache.shiro.crypto.hash.SimpleHash;
 import org.apache.shiro.util.ByteSource;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import org.jboss.netty.util.internal.SystemPropertyUtil;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -403,15 +404,11 @@ public class AccountService {
     }
 
     public void updateAccountConversationList(RoutingContext ctx, List<String> user_list, String conversation_id) {
-
         for (String username : user_list) {
             String user_id;
-            int amount_read = 0;
-            boolean has_new = true;
+            long read_time = System.currentTimeMillis();
             if (username.equals(ctx.user().principal().getString("username"))) {
                 user_id = ctx.session().get("user_db_id");
-                amount_read = 1;
-                has_new = false;
             } else {
                 JsonObject user_db = getUserAccountFromDBByUsername(username);
                 if (user_db == null) {
@@ -420,17 +417,17 @@ public class AccountService {
                     return;
                 }
                 user_id = user_db.getString("id");
+                read_time = 0; // indicate not read yet for non logged in user
             }
 
             JsonObject json = new JsonObject();
             json.put("id", user_id);
             json.put("ESDataType", ESDataType.Account.toString());
-            json.put("script", System.getProperty("account.conversation.script"));
+            json.put("script", System.getProperty("account.conversation.add.script"));
 
             Map<String, Object> chatRecord = new HashMap<>();
             chatRecord.put("conversation_id", conversation_id);
-            chatRecord.put("has_new", has_new);
-            chatRecord.put("amount_read", amount_read);
+            chatRecord.put("last_read_time", read_time);
 
             Map<String, Object> new_chat = new HashMap<>();
             new_chat.put("new_chat", chatRecord);
@@ -459,7 +456,7 @@ public class AccountService {
             json_input.put("ESDataType", ESDataType.Message.toString());
 
             JsonArray result = dbInterface.bulkRead(json_input);
-            List<JsonObject> conversation_list = result.getList();
+            List<Object> conversation_list = result.getList();
             int i = 0;
             int j = 0;
             int size_chat_record = id_list.size();
@@ -467,7 +464,7 @@ public class AccountService {
             // There may be some conversation_ids missed in DB
             while (i < size_chat_record && j < size_conversation_list) {
                 JsonObject chat = chat_list.getJsonObject(i);
-                JsonObject con = conversation_list.get(j);
+                JsonObject con = (JsonObject) conversation_list.get(j);
 
                 if (chat.getString("conversation_id").equals(con.getString("id"))) {
                     con.remove("messages");
@@ -490,13 +487,14 @@ public class AccountService {
         });
     }
 
-    public void updateAccountChatRecord(String user_db_id, String conversation_id, boolean has_new) {
+    public void updateLastMessageReadTime(String user_db_id, String conversation_id) {
         JsonObject account = getUserAccountFromDBByUserid(user_db_id);
         JsonArray chat_list = account.getJsonArray("chat_list");
         for (Object o : chat_list) {
             JsonObject ob = (JsonObject) o;
             if (ob.getString("conversation_id").equals(conversation_id)) {
-                ob.put("has_new", has_new);
+                ob.put("last_read_time", System.currentTimeMillis());
+                break;
             }
         }
 
@@ -508,4 +506,32 @@ public class AccountService {
         dbInterface.update(json_input);
     }
 
+    public void deleteChatRecord(String user_db_id, String conversation_id) {
+        JsonObject account = getUserAccountFromDBByUserid(user_db_id);
+        JsonArray chat_list = account.getJsonArray("chat_list");
+
+        JsonObject found = null;
+        for (Object o : chat_list) {
+            JsonObject ob = (JsonObject) o;
+            if (ob.getString("conversation_id").equals(conversation_id)) {
+                found = ob;
+                break;
+            }
+        }
+
+        if(found == null){
+            logger.info("Couldn't find matched conversation id for delete");
+            return;
+        }
+
+        JsonObject json_input = new JsonObject();
+        json_input.put("id", user_db_id);
+        json_input.put("ESDataType", ESDataType.Account.toString());
+        json_input.put("script", System.getProperty("account.conversation.remove.script"));
+
+        Map<String, Object> chat = new HashMap<>();
+        chat.put("chat", found.getMap());
+        json_input.put("params", chat);
+        dbInterface.update(json_input);
+    }
 }
