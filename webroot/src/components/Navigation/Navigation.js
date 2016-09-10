@@ -1,7 +1,7 @@
 import React from "react"
 import { Link, IndexLink } from "react-router"
 import "./Navigation.css"
-import Search from "../Search"
+import Search from "../SearchBox"
 
 export default class Navigation extends React.Component {
   constructor() {
@@ -22,7 +22,7 @@ export default class Navigation extends React.Component {
     return (
       <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
           <div class="container">
-              <div class="navbar-header">
+              <div class="navbar-left">
                   <button type="button" class="navbar-toggle" onClick={this.toggleCollapse.bind(this)}>
                       <span class="sr-only">Toggle navigation</span>
                       <span class="icon-bar"></span>
@@ -34,8 +34,11 @@ export default class Navigation extends React.Component {
               <div class={"navbar-right navbar-collapse " + navClass} id="bs-example-navbar-collapse-1">
                   <ul class="nav navbar-nav">
                       <li class="searchBox">
-                        <Search />              
-                      </li> 
+                        <SearchBox />        
+                      </li>      
+                      <li>
+                        <Link to="postCreation"><button class="btn btn-success">Create new Post</button></Link>
+                      </li>
                       <li>
                         <Link to="login">Log in</Link>
                       </li>

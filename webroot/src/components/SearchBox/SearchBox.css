@@ -1,4 +1,4 @@
-@media screen and (-webkit-min-device-pixel-ratio:0) {  /*safari and chrome*/
+/*@media screen and (-webkit-min-device-pixel-ratio:0) {  /*safari and chrome*/
     select {
         height:30px;
         width: 100px;
@@ -20,4 +20,4 @@ select::-moz-focus-inner { /*Remove button padding in FF*/
         height:30px;
         line-height:30px;
     }     
-}
+}*/
