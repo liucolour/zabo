@@ -1,4 +1,7 @@
-.idea/
+**/.idea/
 file-uploads/
 target/
-*.iml
+**/*.iml
+**/node_modules
+**/index.min.js
+**/.log
