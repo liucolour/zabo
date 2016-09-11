@@ -23,7 +23,7 @@ export default class Navigation extends React.Component {
     const { collapsed } = this.state;
     const navClass = collapsed ? "collapse" : "";
     return (
-      <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+      <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
           <div class="container">
               <div class="navbar-header">
                   <button type="button" class="navbar-toggle" onClick={this.toggleCollapse.bind(this)}>
@@ -37,7 +37,7 @@ export default class Navigation extends React.Component {
               <div class={"navbar-collapse " + navClass} id="bs-example-navbar-collapse-1">            
                 <ul class="nav navbar-nav navbar-right">    
                     <li>
-                      <Link class="btn btn-success" to="postCreation">Create new Post</Link>
+                      <Link to="postCreation">Create new Post</Link>
                     </li>
                     <li>
                       <Link to="login">Log in</Link>
