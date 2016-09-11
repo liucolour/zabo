@@ -1,8 +1,4 @@
-.navbar {
-  min-height:65px !important
-}
-
-.searchBox {
-  margin-top: 15px;
-  margin-right: 20px;
+#search{
+    display:block;
+    text-align:center;
 }

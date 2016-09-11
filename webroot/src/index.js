@@ -12,8 +12,8 @@ import Layout from "./components/Layout"
 import reducer from "./reducers"
 
 import Contents from "./components/Contents"
-import About from "./components/About"
-import Contact from "./components/Contact"
+import Login from "./components/Login"
+import Signup from "./components/Signup"
 
 const middleware = applyMiddleware(promise(), thunk, logger())
 
@@ -26,8 +26,8 @@ ReactDOM.render(<Provider store={store}>
   <Router history={hashHistory}>
     <Route path="/" component={Layout}>
       <IndexRoute component={Contents}></IndexRoute>
-      <Route path="about" component={About}></Route>
-      <Route path="contact" component={Contact}></Route>
+      <Route path="login" component={Login}></Route>
+      <Route path="signup" component={Signup}></Route>
     </Route>
   </Router>
 </Provider>, app);

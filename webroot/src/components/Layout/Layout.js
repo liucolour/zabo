@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import Header from '../Header';
-// import Feedback from '../Feedback';
 import Footer from '../Footer';
 
 export default class Layout extends Component {
