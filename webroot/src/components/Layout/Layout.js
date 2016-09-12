@@ -6,7 +6,7 @@ export default class Layout extends Component {
 
   render() {
     const containerStyle = {
-      marginTop: "60px"
+      marginTop: "50px"
     };
     return (
       <div>

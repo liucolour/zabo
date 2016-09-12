@@ -11,7 +11,7 @@ import promise from "redux-promise-middleware"
 import Layout from "./components/Layout"
 import reducer from "./reducers"
 
-import Contents from "./components/Contents"
+import Content from "./components/Content"
 import Login from "./components/Login"
 import Signup from "./components/Signup"
 
@@ -25,7 +25,7 @@ const app = document.getElementById('app')
 ReactDOM.render(<Provider store={store}>
   <Router history={hashHistory}>
     <Route path="/" component={Layout}>
-      <IndexRoute component={Contents}></IndexRoute>
+      <IndexRoute component={Content}></IndexRoute>
       <Route path="login" component={Login}></Route>
       <Route path="signup" component={Signup}></Route>
     </Route>
