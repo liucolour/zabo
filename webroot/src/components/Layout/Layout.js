@@ -1,16 +1,16 @@
 import React, { Component } from 'react';
-import Header from '../Header';
+import Navigation from '../Navigation';
 import Footer from '../Footer';
 
 export default class Layout extends Component {
 
   render() {
     const containerStyle = {
-      marginTop: "50px"
+      marginTop: "60px"
     };
     return (
       <div>
-        <Header />
+        <Navigation />
         <div class="container" style={containerStyle}>
           {this.props.children}
         </div>

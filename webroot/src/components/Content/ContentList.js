@@ -6,7 +6,8 @@ export default class ContentList extends React.Component {
       <div class="container">
         <div class="row">
           <div class="col-md-12">
-            <h2 class="page-header">Page Heading</h2>
+            <p>Page Heading</p>
+            <hr/>
           </div>
         </div>
         <div class="row">
