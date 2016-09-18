@@ -12,6 +12,8 @@ import Layout from "./components/Layout"
 import reducer from "./reducers"
 
 import Content from "./components/Content"
+import Rental from "./components/Rental"
+import Job from "./components/Job"
 import Login from "./components/Login"
 import Signup from "./components/Signup"
 
@@ -28,6 +30,9 @@ ReactDOM.render(<Provider store={store}>
       <IndexRoute component={Content}></IndexRoute>
       <Route path="login" component={Login}></Route>
       <Route path="signup" component={Signup}></Route>
+
+      <Route path="rental" component={Rental}></Route>
+      <Route path="job" component={Job}></Route>
     </Route>
   </Router>
 </Provider>, app);

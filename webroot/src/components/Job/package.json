@@ -1,0 +1,6 @@
+{
+  "name": "Job",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./Job.js"
+}
