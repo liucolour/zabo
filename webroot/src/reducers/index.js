@@ -1,7 +1,11 @@
 import { combineReducers } from "redux"
+import { routerReducer as routing } from 'react-router-redux'
 
-import user from "./userReducer"
+import users from "./userReducer"
+import jobs from "./jobReducer"
 
 export default combineReducers({
-  user,
+  users,
+  jobs,
+  routing
 })

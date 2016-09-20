@@ -1,9 +1,12 @@
 import React, { Component } from 'react'
+import { connect } from 'react-redux'
+
 import Navigation from '../Navigation'
 import Footer from '../Footer'
 import { Router } from 'react-router'
+import { fetchJobs } from "../../actions/jobActions"
 
-export default class Layout extends Component {
+class Layout extends Component {
   constructor(props, context) {
       super(props, context);
   }
@@ -12,6 +15,7 @@ export default class Layout extends Component {
     console.log("Category : " + category);
     console.log("Destination : " + place);
     this.context.router.push(category.toLowerCase(), {objectId: 'asdf'});
+    this.props.fetchJobs();
   }
 
   render() {
@@ -33,3 +37,10 @@ export default class Layout extends Component {
 Layout.contextTypes = {
   router: React.PropTypes.object.isRequired,
 };
+
+const mapStateToProps = (state, ownProps) => ({
+})
+
+export default connect(mapStateToProps, {
+  fetchJobs
+})(Layout)

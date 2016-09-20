@@ -2,7 +2,8 @@ import React from "react"
 import ReactDOM from "react-dom"
 import { Provider } from "react-redux"
 import { applyMiddleware, createStore } from "redux"
-import { Router, Route, IndexRoute, hashHistory } from "react-router"
+import { Router, Route, IndexRoute, browserHistory } from "react-router"
+import { syncHistoryWithStore } from 'react-router-redux'
 
 import logger from "redux-logger"
 import thunk from "redux-thunk"
@@ -23,16 +24,19 @@ const store = createStore(reducer, middleware)
 
 const app = document.getElementById('app')
 
+// Create an enhanced history that syncs navigation events with the store
+const history = syncHistoryWithStore(browserHistory, store)
 
-ReactDOM.render(<Provider store={store}>
-  <Router history={hashHistory}>
-    <Route path="/" component={Layout}>
-      <IndexRoute component={Content}></IndexRoute>
-      <Route path="login" component={Login}></Route>
-      <Route path="signup" component={Signup}></Route>
+ReactDOM.render(
+  <Provider store={store}>
+    <Router history={history}>
+      <Route path="/" component={Layout}>
+        <IndexRoute component={Content}></IndexRoute>
+        <Route path="login" component={Login}></Route>
+        <Route path="signup" component={Signup}></Route>
 
-      <Route path="rental" component={Rental}></Route>
-      <Route path="job" component={Job}></Route>
-    </Route>
-  </Router>
-</Provider>, app);
+        <Route path="rental" component={Rental}></Route>
+        <Route path="job" component={Job}></Route>
+      </Route>
+    </Router>
+  </Provider>, app);
